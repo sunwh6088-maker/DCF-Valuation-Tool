@@ -47,6 +47,16 @@ mvn test          # 全部单元测试
 mvn test -Dtest=LiveApiSmokeTest   # 真实网络抓取冒烟（需要联网）
 ```
 
+
+## 界面预览
+
+| 首页（选择市场） | A 股输入页 |
+|---|---|
+| ![首页](docs/screenshots/home.jpg) | ![A股输入](docs/screenshots/input-a.jpg) |
+
+| 参数页（可手动覆盖） | 结果页（估值 + 敏感性热力图） |
+|---|---|
+| ![参数](docs/screenshots/params.jpg) | ![结果](docs/screenshots/result.jpg) |
 ## 使用流程
 
 1. **首页**选择市场：A 股 / 美股
