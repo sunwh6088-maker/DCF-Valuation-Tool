@@ -35,10 +35,19 @@
 ```bash
 git clone https://github.com/sunwh6088-maker/DCF-Valuation-Tool.git
 cd DCF-Valuation-Tool
-mvn spring-boot:run
+mvn spring-boot:run          # 方式一：开发模式（自动编译）
+./run.sh                     # 方式二：一键启动脚本（Linux/macOS；Windows 用 run.bat）
 ```
 
 浏览器打开 <http://localhost:8501> 即可使用（端口可在 `src/main/resources/application.yml` 修改）。
+
+**代理（可选）**：FRED 等境外数据源需要代理时才需设置环境变量，**别人使用无需任何代理配置**（不加代理时自动获取失败会提示手动输入，不影响其他功能）：
+
+```bash
+set HTTPS_PROXY=http://127.0.0.1:7890 && run.bat        # Windows CMD
+$env:HTTPS_PROXY = "http://127.0.0.1:7890"; .un.bat   # Windows PowerShell
+HTTPS_PROXY=http://127.0.0.1:7890 ./run.sh              # Linux/macOS
+```
 
 运行测试：
 

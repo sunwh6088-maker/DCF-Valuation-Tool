@@ -180,3 +180,27 @@
   - 中债登查询窗口上限 1 年，本实现取最近 30 天，日频足够
   - 中债登 SSL 证书链不在 JDK 默认信任库，需宽松 TLS（仅限该公开数据源，不传输敏感信息）
   - FRED（境外）在当前网络实测超时，失败时前端提示手动输入（兜底逻辑保留）
+
+---
+
+## 变更 #9：启动脚本完善（v1.1.1，2026-08-25 晚）
+
+- **原因**：
+  1. `run.bat` 中 jar 名仍写死 `dcf-valuation-tool-1.0.0.jar`（实际版本已到 1.1.x），且检测逻辑失效；
+  2. FRED 等境外数据源在国内网络需代理，但代理地址是个人环境变量，**不能写死进脚本**（别人用不了自己的代理），
+     需要脚本支持标准 `HTTPS_PROXY` / `HTTP_PROXY` 环境变量，未设置时行为与原来完全一致。
+- **修改位置**：
+  - `run.bat`：重写（jar 名改为 1.1.1 并按需打包；新增 `HTTPS_PROXY`/`HTTP_PROXY` 解析 →
+    `-Dhttps.proxyHost/-Dhttps.proxyPort/-Dhttp.proxyHost/-Dhttp.proxyPort` 透传给 JVM；
+    开发模式经 `spring-boot.run.jvmArguments` 传给 fork 出的应用 JVM；无代理时零改动启动）
+  - 新增 `run.sh`：Linux/macOS 等价脚本（sed 解析代理 URL，端口默认 80，未设置时零改动启动）
+  - `README.md`：快速开始新增 `run.bat`/`run.sh` 用法与「代理（可选）」说明（明确别人使用无需配置）
+  - `pom.xml`：版本 1.1.0 → 1.1.1
+- **测试方式**：
+  - `run.bat`：无代理双击/命令行启动正常；`set HTTPS_PROXY=http://127.0.0.1:7890` 后回显「使用代理」且
+    实际 java 进程带 `-Dhttps.proxyHost=127.0.0.1` 参数（`run.bat jar` + 任务管理器/wmic 命令行核对）
+  - `run.sh`：语法检查 `sh -n run.sh`；`HTTPS_PROXY` 解析用例人工核对（host/port 提取）
+  - `mvn package` 成功产出 `dcf-valuation-tool-1.1.1.jar`；`mvn test` 全量 54 个用例通过
+- **可能影响的模块**：仅启动方式（README/run.bat/run.sh）；运行时代码、数据抓取、估值计算均不受影响。
+- **已知限制**：`HTTPS_PROXY` 不支持带用户名密码的格式（如 `http://user:pass@host:port`），极少数场景可用
+  系统属性 `-Dhttps.proxyUser/-Dhttps.proxyPassword` 补充。
