@@ -17,6 +17,10 @@
 
 <div class="container py-4">
     <div th:if="${ctx.errorMessage}" class="alert alert-danger" th:text="${ctx.errorMessage}"></div>
+    <div th:if="${ctx.financial}" class="alert alert-warning">
+        ⚠️ <b>检测到金融企业</b>（银行/保险/证券/信托等）：其经营现金流口径与实体企业不同，
+        DCF 估值参考性有限，建议同时参考 PB / PE 相对估值，或手动调整 FCF 口径。
+    </div>
 
     <div class="row g-4">
         <!-- 左：公司信息 -->

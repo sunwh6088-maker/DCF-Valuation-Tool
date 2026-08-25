@@ -62,6 +62,11 @@
         </div>
     </div>
 
+    <!-- 金融股风险注记 -->
+    <div class="alert alert-warning" th:if="${ctx.financial}">
+        ⚠️ 金融企业（银行/保险/证券/信托等）经营现金流失真，本估值参考性有限，建议结合 PB / PE 相对估值。
+    </div>
+
     <!-- 终值占比警告 -->
     <div class="alert alert-warning" th:if="${ctx.result.terminalRatio > 0.8}">
         ⚠️ 终值现值占企业价值 <b th:text="${#numbers.formatDecimal(ctx.result.terminalRatio * 100, 1, 1)} + '%'"></b>

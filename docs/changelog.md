@@ -103,3 +103,20 @@
 - **测试方式**：`mvn test` 全量 45 个用例通过；FRED 联网取值用 curl 实测 + 冒烟用例（可手动启用）。
 - **可能影响的模块**：参数页 Rf 输入、CAPM/WACC 计算链路；CN 用户行为不变（手动输入）；US 用户可一键获取。
 - **已知限制**：CN 自动获取待免费源恢复后补上（可在 RateFetcher.fetchCn10y 内扩展）。
+
+---
+
+## 变更 #5：金融股提示（P1-5，2026-08-25）
+
+- **原因**：银行/保险/证券/信托等金融企业财报结构特殊，经营现金流口径 DCF 会失真（xuelixunhua 项目明确提示银行股不适用）。
+- **实现决策**：东财行情行业字段（f127）实测返回 502/空（接口风控），改用**公司名称关键词检测**（银行/保险/证券/信托/期货/金融/租赁/消费金融），不依赖外部接口，稳定可靠。
+- **修改位置**：
+  - 新增 `src/main/java/com/dcf/model/FinanceDetector.java`：关键词检测
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 isFinancial 标记
+  - `src/main/java/com/dcf/service/ValuationService.java`：compute() 检测并写入上下文
+  - `params.html` / `result.html`：金融股警告 banner
+  - `ReportService.java`：报告头部风险注记
+  - 新增 `src/test/java/com/dcf/model/FinanceDetectorTest.java`（2 个用例）
+- **测试方式**：`mvn test` 全量 47 个用例通过；正例（招商银行/中信证券/中航信托等）、反例（贵州茅台/宁德时代/空值）。
+- **可能影响的模块**：参数页/结果页展示（纯提示，不影响计算）；美股手动输入同样生效（名称必填）。
+- **已知限制**：名称不含关键词的类金融公司（如"民生控股"）可能漏检；行业接口恢复后可升级为字段判断。

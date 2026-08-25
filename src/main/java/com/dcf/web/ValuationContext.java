@@ -43,6 +43,7 @@ public class ValuationContext {
     // ---- 计算结果 ----
     private ValuationResult result;
     private List<ScenarioResult> scenarioResults = List.of();
+    private boolean financial;             // 金融股标记（财报结构特殊，DCF 参考性有限）
     private String verdict = "";            // 判断分级（明显低估/略有折价/基本合理/偏贵/明显高估）
     private double paybackYears = Double.NaN; // 回本年限（市值/年均FCF）
     private double impliedReturn = Double.NaN; // 隐含年化回报
@@ -115,6 +116,9 @@ public class ValuationContext {
 
     public List<ScenarioResult> getScenarioResults() { return scenarioResults; }
     public void setScenarioResults(List<ScenarioResult> scenarioResults) { this.scenarioResults = scenarioResults; }
+
+    public boolean isFinancial() { return financial; }
+    public void setFinancial(boolean financial) { this.financial = financial; }
 
     public String getVerdict() { return verdict; }
     public void setVerdict(String verdict) { this.verdict = verdict; }

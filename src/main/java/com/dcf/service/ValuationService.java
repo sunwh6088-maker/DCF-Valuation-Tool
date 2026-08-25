@@ -2,6 +2,7 @@ package com.dcf.service;
 
 import com.dcf.data.model.HistoricalData;
 import com.dcf.model.DcfModel;
+import com.dcf.model.FinanceDetector;
 import com.dcf.model.Indicators;
 import com.dcf.model.Scenario;
 import com.dcf.model.ScenarioResult;
@@ -82,6 +83,9 @@ public class ValuationService {
                 discountRate, netDebt, shares, minority,
                 ctx.getNFirst(), ctx.getNTransition());
         ctx.setResult(result);
+
+        // 3.4 金融股标记（财报结构特殊提示）
+        ctx.setFinancial(FinanceDetector.isFinancial(ctx.getCompany().snapshot().name()));
 
         // 3.5 辅助指标：判断分级 / 回本年限 / 隐含年化回报
         double price = ctx.getCompany().snapshot().price();

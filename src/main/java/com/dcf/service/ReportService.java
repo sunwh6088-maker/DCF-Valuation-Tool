@@ -56,6 +56,11 @@ public class ReportService {
         }
         sb.append("\n");
 
+        if (ctx.isFinancial()) {
+            sb.append("> ⚠️ 本标的为金融企业（银行/保险/证券/信托等），经营现金流口径 DCF 参考性有限，"
+                    + "建议结合 PB/PE 相对估值交叉验证。\n\n");
+        }
+
         // 二、模型口径
         sb.append("## 二、模型口径\n\n");
         sb.append("- 自由现金流 FCF = 经营活动现金流 − 资本开支\n");
