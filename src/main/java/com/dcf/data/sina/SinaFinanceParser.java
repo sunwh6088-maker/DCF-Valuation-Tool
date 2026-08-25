@@ -30,6 +30,15 @@ public final class SinaFinanceParser {
     public static final String KEY_LEASE = "租赁负债";
     public static final String KEY_MINORITY = "少数股东权益";
 
+    // ---- 进阶科目（FCFF / PE 退出 / F-Score 用） ----
+    public static final String KEY_NET_INCOME = "净利润";
+    public static final String KEY_TOTAL_ASSETS = "资产总计";
+    public static final String KEY_TOTAL_LIABILITIES = "负债合计";
+    public static final String KEY_CURRENT_ASSETS = "流动资产合计";
+    public static final String KEY_CURRENT_LIABILITIES = "流动负债合计";
+    public static final String KEY_COST_OF_REVENUE = "营业成本";
+    public static final String KEY_SHARES_CAPITAL = "实收资本";
+
     private SinaFinanceParser() {
     }
 
@@ -70,6 +79,14 @@ public final class SinaFinanceParser {
         double[] ebit = new double[n];
         double[] pretax = new double[n];
         double[] tax = new double[n];
+        double[] netIncome = new double[n];
+        double[] depreciation = new double[n];
+        double[] totalAssets = new double[n];
+        double[] totalLiabilities = new double[n];
+        double[] currentAssets = new double[n];
+        double[] currentLiabilities = new double[n];
+        double[] grossProfit = new double[n];
+        double[] sharesCapital = new double[n];
 
         for (int i = 0; i < n; i++) {
             String date = annualDates.get(i);
@@ -80,8 +97,24 @@ public final class SinaFinanceParser {
             ebit[i] = pick(profitSheet.get(date), KEY_EBIT);
             pretax[i] = pick(profitSheet.get(date), KEY_PRETAX);
             tax[i] = pick(profitSheet.get(date), KEY_TAX);
+            netIncome[i] = pickExact(profitSheet.get(date), KEY_NET_INCOME);
+            // 折旧摊销合计：现金流量表内所有含「折旧/摊销」的科目求和
+            depreciation[i] = pickSum(cashFlow.get(date), "折旧", "摊销");
+            totalAssets[i] = pick(balanceSheet.get(date), KEY_TOTAL_ASSETS);
+            totalLiabilities[i] = pick(balanceSheet.get(date), KEY_TOTAL_LIABILITIES);
+            currentAssets[i] = pick(balanceSheet.get(date), KEY_CURRENT_ASSETS);
+            currentLiabilities[i] = pick(balanceSheet.get(date), KEY_CURRENT_LIABILITIES);
+            double cost = pick(profitSheet.get(date), KEY_COST_OF_REVENUE);
+            grossProfit[i] = (!Double.isNaN(revenue[i]) && !Double.isNaN(cost)) ? revenue[i] - cost : Double.NaN;
+            sharesCapital[i] = pick(balanceSheet.get(date), KEY_SHARES_CAPITAL);
+            if (Double.isNaN(sharesCapital[i])) {
+                sharesCapital[i] = pick(balanceSheet.get(date), "股本");
+            }
         }
-        return new HistoricalData(years, ocf, capex, revenue, ebit, pretax, tax);
+        HistoricalData.ExtraFinancials extra = new HistoricalData.ExtraFinancials(
+                netIncome, depreciation, totalAssets, totalLiabilities,
+                currentAssets, currentLiabilities, grossProfit, sharesCapital);
+        return new HistoricalData(years, ocf, capex, revenue, ebit, pretax, tax, extra);
     }
 
     /** 从科目表中按关键词匹配数值，缺失返回 NaN。 */
@@ -96,6 +129,40 @@ public final class SinaFinanceParser {
             }
         }
         return Double.NaN;
+    }
+
+    /** 精确匹配优先的科目提取（如「净利润」优先于「归属于母公司股东的净利润」）。 */
+    private static double pickExact(Map<String, Double> items, String keyword) {
+        if (items == null || items.isEmpty()) {
+            return Double.NaN;
+        }
+        String kw = normalize(keyword);
+        for (Map.Entry<String, Double> e : items.entrySet()) {
+            if (kw.equals(normalize(e.getKey()))) {
+                return e.getValue();
+            }
+        }
+        return pick(items, keyword);
+    }
+
+    /** 多关键词求和提取（如折旧+摊销合计）。 */
+    private static double pickSum(Map<String, Double> items, String... keywords) {
+        if (items == null || items.isEmpty()) {
+            return Double.NaN;
+        }
+        double sum = 0.0;
+        boolean found = false;
+        for (Map.Entry<String, Double> e : items.entrySet()) {
+            String n = normalize(e.getKey());
+            for (String kw : keywords) {
+                if (n.contains(normalize(kw))) {
+                    sum += e.getValue();
+                    found = true;
+                    break;
+                }
+            }
+        }
+        return found ? sum : Double.NaN;
     }
 
     /** 归一化：NFKC 全角转半角、统一小写、去除所有空白。 */

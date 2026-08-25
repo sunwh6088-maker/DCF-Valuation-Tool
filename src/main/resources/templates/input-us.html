@@ -33,6 +33,8 @@
                     <li>资本开支（Capex，取正数）</li>
                     <li>营收 / EBIT（营业利润，可选）</li>
                     <li>税前利润 / 所得税（可选，用于计算有效税率）</li>
+                    <li><b>选填进阶科目</b>：净利润、折旧摊销、总资产、总负债、流动资产、流动负债、营业成本、股本
+                        （供 FCFF 口径 / PE 退出法 / F-Score 使用，不填则自动降级）</li>
                 </ul>
             </div>
             <div class="col-md-6">
@@ -65,7 +67,11 @@
                     <thead class="table-light">
                     <tr>
                         <th>财年*</th><th>经营现金流*</th><th>资本开支*</th>
-                        <th>营收</th><th>EBIT</th><th>税前利润</th><th>所得税</th><th></th>
+                        <th>营收</th><th>EBIT</th><th>税前利润</th><th>所得税</th>
+                        <th>净利润<span class="text-muted small">(选填)</span></th><th>折旧摊销<span class="text-muted small">(选填)</span></th>
+                        <th>总资产<span class="text-muted small">(选填)</span></th><th>总负债<span class="text-muted small">(选填)</span></th>
+                        <th>流动资产<span class="text-muted small">(选填)</span></th><th>流动负债<span class="text-muted small">(选填)</span></th>
+                        <th>营业成本<span class="text-muted small">(选填)</span></th><th>股本<span class="text-muted small">(选填)</span></th><th></th>
                     </tr>
                     </thead>
                     <tbody id="manualRows"></tbody>

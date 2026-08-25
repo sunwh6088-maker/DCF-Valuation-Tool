@@ -28,9 +28,10 @@ import java.util.regex.Pattern;
  */
 public final class CsvImporter {
 
-    /** 模板列名（第一行表头）。 */
+    /** 模板列名（第一行表头；后 8 列为进阶可选列，缺失时 FCFF/PE/F-Score 功能自动降级）。 */
     public static final String[] TEMPLATE_HEADERS = {
-            "年份", "经营现金流", "资本开支", "营收", "EBIT", "税前利润", "所得税费用"
+            "年份", "经营现金流", "资本开支", "营收", "EBIT", "税前利润", "所得税费用",
+            "净利润", "折旧摊销", "资产总计", "负债合计", "流动资产合计", "流动负债合计", "营业成本", "股本"
     };
 
     private static final Pattern YEAR_PATTERN = Pattern.compile("(\\d{4})");
@@ -45,6 +46,8 @@ public final class CsvImporter {
         StringBuilder sb = new StringBuilder();
         sb.append("# DCF 历史财务数据模板（每年一行，金额单位：元；EBIT 可填营业利润）\n");
         sb.append("# 至少 3 年，建议 5-10 年；留空或填 - 表示缺失\n");
+        sb.append("# 后 8 列（净利润/折旧摊销/资产总计/负债合计/流动资产合计/流动负债合计/营业成本/股本）为选填：\n");
+        sb.append("#   供 FCFF 口径、PE 退出法、F-Score 使用；不填则这些功能自动降级\n");
         sb.append(String.join(",", TEMPLATE_HEADERS)).append('\n');
         sb.append("2024,10000000000,5000000000,150000000000,90000000000,80000000000,20000000000\n");
         sb.append("2023,9000000000,4500000000,140000000000,85000000000,75000000000,19000000000\n");
@@ -92,6 +95,15 @@ public final class CsvImporter {
         double[] ebit = fill(colIndex.get("EBIT"), n);
         double[] pretax = fill(colIndex.get("税前利润"), n);
         double[] tax = fill(colIndex.get("所得税费用"), n);
+        double[] netIncome = fill(colIndex.get("净利润"), n);
+        double[] depreciation = fill(colIndex.get("折旧摊销"), n);
+        double[] totalAssets = fill(colIndex.get("资产总计"), n);
+        double[] totalLiabilities = fill(colIndex.get("负债合计"), n);
+        double[] currentAssets = fill(colIndex.get("流动资产合计"), n);
+        double[] currentLiabilities = fill(colIndex.get("流动负债合计"), n);
+        double[] costOfRevenue = fill(colIndex.get("营业成本"), n);
+        double[] grossProfit = new double[n];
+        double[] sharesCapital = fill(colIndex.get("股本"), n);
 
         for (int i = 0; i < n; i++) {
             String[] row = rows.get(i + 1);
@@ -102,9 +114,23 @@ public final class CsvImporter {
             ebit[i] = optNumber(row, colIndex.get("EBIT"));
             pretax[i] = optNumber(row, colIndex.get("税前利润"));
             tax[i] = optNumber(row, colIndex.get("所得税费用"));
+            netIncome[i] = optNumber(row, colIndex.get("净利润"));
+            depreciation[i] = optNumber(row, colIndex.get("折旧摊销"));
+            totalAssets[i] = optNumber(row, colIndex.get("资产总计"));
+            totalLiabilities[i] = optNumber(row, colIndex.get("负债合计"));
+            currentAssets[i] = optNumber(row, colIndex.get("流动资产合计"));
+            currentLiabilities[i] = optNumber(row, colIndex.get("流动负债合计"));
+            double cost = optNumber(row, colIndex.get("营业成本"));
+            grossProfit[i] = (!Double.isNaN(revenue[i]) && !Double.isNaN(cost)) ? revenue[i] - cost : Double.NaN;
+            sharesCapital[i] = optNumber(row, colIndex.get("股本"));
         }
-        sortByYear(years, ocf, capex, revenue, ebit, pretax, tax);
-        return new HistoricalData(years, ocf, capex, revenue, ebit, pretax, tax);
+        sortByYear(years, ocf, capex, revenue, ebit, pretax, tax,
+                netIncome, depreciation, totalAssets, totalLiabilities,
+                currentAssets, currentLiabilities, grossProfit, sharesCapital);
+        HistoricalData.ExtraFinancials extra = new HistoricalData.ExtraFinancials(
+                netIncome, depreciation, totalAssets, totalLiabilities,
+                currentAssets, currentLiabilities, grossProfit, sharesCapital);
+        return new HistoricalData(years, ocf, capex, revenue, ebit, pretax, tax, extra);
     }
 
     /** 按年份升序重排所有财务数组（兼容理杏仁等倒序导出）。 */
@@ -167,6 +193,22 @@ public final class CsvImporter {
                 map.putIfAbsent("税前利润", i);
             } else if (h.contains("所得税")) {
                 map.putIfAbsent("所得税费用", i);
+            } else if (h.contains("净利润") || h.equals("netincome")) {
+                map.putIfAbsent("净利润", i);
+            } else if (h.contains("折旧") || h.contains("摊销")) {
+                map.putIfAbsent("折旧摊销", i);
+            } else if (h.contains("资产总计") || h.contains("总资产")) {
+                map.putIfAbsent("资产总计", i);
+            } else if (h.contains("负债合计") || h.contains("总负债")) {
+                map.putIfAbsent("负债合计", i);
+            } else if (h.contains("流动资产")) {
+                map.putIfAbsent("流动资产合计", i);
+            } else if (h.contains("流动负债")) {
+                map.putIfAbsent("流动负债合计", i);
+            } else if (h.contains("营业成本")) {
+                map.putIfAbsent("营业成本", i);
+            } else if (h.contains("股本") || h.contains("实收资本")) {
+                map.putIfAbsent("股本", i);
             }
         }
         return map;

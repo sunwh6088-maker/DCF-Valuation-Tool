@@ -26,6 +26,14 @@ function addRow(year) {
         <td><input class="form-control form-control-sm" name="ebit" type="number" step="any" placeholder="(可选)"></td>
         <td><input class="form-control form-control-sm" name="pretax" type="number" step="any" placeholder="(可选)"></td>
         <td><input class="form-control form-control-sm" name="tax" type="number" step="any" placeholder="(可选)"></td>
+        <td><input class="form-control form-control-sm" name="netIncome" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="depreciation" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="totalAssets" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="totalLiabilities" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="currentAssets" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="currentLiabilities" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="costOfRevenue" type="number" step="any" placeholder="(选填)"></td>
+        <td><input class="form-control form-control-sm" name="sharesCapital" type="number" step="any" placeholder="(选填)"></td>
         <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">✕</button></td>`;
     tbody.appendChild(tr);
     manualYearCounter++;
