@@ -5,7 +5,7 @@
 - A 股：自动抓取财报（新浪财经）+ 股本/股价（东方财富），也可导入理杏仁 CSV 或手动输入
 - 美股：按清单手动输入（美股权重数据源多为付费，自动抓取不可靠）
 - 输出：每股内在价值 vs 股价、安全边际、折现率 × 永续增长率二维敏感性热力图
-- 导出：中文 Markdown 报告 + Excel（6 个 Sheet：说明 / 原始数据 / 假设 / 预测 / 估值 / 敏感性）
+- 导出：中文 Markdown 报告 + Excel（8 个 Sheet：说明 / 原始数据 / 假设 / 预测 / 估值 / 三情景 / 历史回溯 / 敏感性）
 
 > 与雪球模板/AI 黑箱不同，本项目**逻辑全透明**：所有假设可见、所有参数可手动覆盖、每个数字都可追溯到原始输入。仅供学习研究，不构成投资建议。
 
@@ -39,13 +39,15 @@ mvn spring-boot:run          # 方式一：开发模式（自动编译）
 ./run.sh                     # 方式二：一键启动脚本（Linux/macOS；Windows 用 run.bat）
 ```
 
-浏览器打开 <http://localhost:8501> 即可使用（端口可在 `src/main/resources/application.yml` 修改）。
+浏览器打开 <http://localhost:8501> 即可使用（端口可在 `src/main/resources/application.yml` 修改；
+若 8501 被占用，可用 `run.bat jar 8502` / `./run.sh jar 8502` 一键换端口，
+或直接 `java -jar target/dcf-valuation-tool-1.1.1.jar --server.port=8502`）。
 
 **代理（可选）**：FRED 等境外数据源需要代理时才需设置环境变量，**别人使用无需任何代理配置**（不加代理时自动获取失败会提示手动输入，不影响其他功能）：
 
 ```bash
 set HTTPS_PROXY=http://127.0.0.1:7890 && run.bat        # Windows CMD
-$env:HTTPS_PROXY = "http://127.0.0.1:7890"; .un.bat   # Windows PowerShell
+$env:HTTPS_PROXY = "http://127.0.0.1:7890"; .\run.bat   # Windows PowerShell
 HTTPS_PROXY=http://127.0.0.1:7890 ./run.sh              # Linux/macOS
 ```
 
@@ -121,8 +123,8 @@ DCF-Valuation-Tool/
 
 ## 分支与 Roadmap
 
-- `main`：Java 版（当前版本 v1.1.0）
-- `python-prototype`：Python/Streamlit 原型（后续计划按此架构重做 Python 版，两版本并行维护）
+- `main`：Java 版（当前版本 v1.1.1）
+- `python-prototype`：Python/Streamlit 原型（⚠️ WIP：目前只提交了核心计算模块 `dcf/`，UI 层 `app.py` 尚未完成，请勿直接运行该分支；后续完成后再合并为正式版）
 
 ## Docker 部署（免装 JDK）
 
@@ -140,7 +142,7 @@ docker run -p 8501:8501 -v "$(pwd)/data:/app/data" dcf-valuation-tool
 
 - **免费 PaaS（最省事）**：把本仓库部署到 Railway / Render / Fly.io（仓库已内置 Dockerfile），
   构建后即可获得公网地址，适合演示与试用
-- **云服务器**：在服务器（需 JDK 21）上运行 `java -jar target/dcf-valuation-tool-1.1.0.jar`，
+- **云服务器**：在服务器（需 JDK 21）上运行 `java -jar target/dcf-valuation-tool-1.1.1.jar`，
   再用 Nginx / Caddy 反向代理并绑定域名（HTTPS）
 - **内网穿透**：ngrok / frp 适合临时演示，不建议长期公开使用
 

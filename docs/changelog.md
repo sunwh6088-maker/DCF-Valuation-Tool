@@ -204,3 +204,15 @@
 - **可能影响的模块**：仅启动方式（README/run.bat/run.sh）；运行时代码、数据抓取、估值计算均不受影响。
 - **已知限制**：`HTTPS_PROXY` 不支持带用户名密码的格式（如 `http://user:pass@host:port`），极少数场景可用
   系统属性 `-Dhttps.proxyUser/-Dhttps.proxyPassword` 补充。
+## 变更 #10：启动脚本支持自定义端口 + README 公开可用性修正（v1.1.1，2026-08-25 晚）
+
+- **原因**：审查「本地可用但别人用不了」的可移植性风险时发现：
+  1. `application.yml` 端口固定 8501，被占用时启动直接失败且无便捷覆盖方式（用户本地就存在 8501 被旧实例占用的情况）；
+  2. README 的 PowerShell 代理示例命令被换行截断（`.\run.bat` 变成 `.` + `un.bat`），照抄必然执行失败；
+  3. README 版本号/云服务器 jar 名仍为 v1.1.0，Excel Sheet 数写 6 个（实际 8 个：三情景/历史回溯未计入），分支说明未标注 python-prototype 为 WIP。
+- **修改位置**：
+  - `run.bat` / `run.sh`：新增可选端口参数（`run.bat 8502`、`run.bat jar 8502`、`./run.sh jar 8502`），并统一 run.bat 行尾为 CRLF（部分 cmd 版本对 LF-only 批处理的 `goto` 有兼容问题）
+  - `README.md`：修复 PowerShell 示例命令断裂；版本号与 jar 名更新为 v1.1.1；Excel 描述改为 8 个 Sheet；快速开始补充端口占用时的三种换端口方式；分支段标注 python-prototype 为 WIP（勿直接运行）
+  - `python-prototype` 分支（单独提交 `0d51f76`）：`run.bat` 增加 app.py 缺失检测与友好提示；README 从 `# First` 改为完整 WIP 说明（现状/计划/许可）
+- **测试方式**：`mvn test` 全量 54 个用例通过（2 跳过）；冒烟：`cmd /c run.bat jar 8502` 启动后 `http://127.0.0.1:8502/` 返回 200（Tomcat 日志确认端口 8502），测试进程已清理；`run.sh` 无法在本机验证（无 sh），语法按 POSIX 规范手写复查
+- **可能影响的模块**：启动流程（run.bat/run.sh）、README/分支说明（仅文档）；不影响 Java 业务代码与估值逻辑
