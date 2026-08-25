@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# 虚拟环境
+.venv/
+
+# Streamlit
+.streamlit/
+
+# 数据缓存与输出
+data/cache/
+outputs/
+*.log
+
+# 系统文件
+Thumbs.db
+.DS_Store
