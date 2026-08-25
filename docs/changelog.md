@@ -376,3 +376,16 @@
   - 新增 `src/test/java/com/dcf/data/DataServiceTest.java`：normalizeCode 全角/前缀归一化、港股 H00700/HK00700 友好报错、其他非法格式用例
 - **测试方式**：`mvnw test -Dtest=DataServiceTest` 通过（新增 3 用例）；全量测试通过；冒烟 POST `/input/a/auto` code=H00700 返回友好错误提示而非 500
 - **可能影响的模块**：A 股输入页（提示文案，不影响正常 A 股流程）；代码校验链路（错误消息更明确）；不涉及估值逻辑
+
+---
+
+## 变更 #23：版本 bump v1.1.4 → v1.1.5（2026-08-25）
+
+- **原因**：v1.1.4 发布后修复了港股代码输入提示（变更 #22），本地 jar 与已发布 v1.1.4 Release 内容不一致；bump 版本号重新发版，保证 jar 与 Release 一一对应。
+- **修改位置**：
+  - `pom.xml`：`<version>` 1.1.4 → 1.1.5
+  - `run.bat` / `run.sh`：`JAR` 变量改为 `dcf-valuation-tool-1.1.5.jar`
+  - `README.md`：jar 名与版本号同步为 1.1.5
+  - 首页版本号无需再改（变更 #19 已动态化，自动跟随 pom）
+- **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.5 jar；启动冒烟，首页显示 "Java 版 v1.1.5"，H00700 友好提示与 600519 正常抓取均验证
+- **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化

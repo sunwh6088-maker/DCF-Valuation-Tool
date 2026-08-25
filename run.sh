@@ -31,7 +31,7 @@ fi
 MVN="mvn"
 [ -f "./mvnw" ] && [ -x "./mvnw" ] && MVN="./mvnw"
 
-JAR="target/dcf-valuation-tool-1.1.4.jar"
+JAR="target/dcf-valuation-tool-1.1.5.jar"
 PROXY_ARGS=""
 
 PROXY_URL="${HTTPS_PROXY:-$HTTP_PROXY}"
@@ -74,4 +74,5 @@ fi
 echo "[INFO] dev mode (auto compile on first run)..."
 # shellcheck disable=SC2086
 exec "$MVN" spring-boot:run "-Dspring-boot.run.jvmArguments=$PROXY_ARGS" $DEV_ARGS
+
 
