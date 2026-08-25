@@ -34,4 +34,14 @@ class LiveApiSmokeTest {
         assertTrue(data.snapshot().price() > 0);
         assertTrue(data.snapshot().sharesOutstanding() > 0);
     }
+
+    @Disabled("真实接口冒烟测试，需网络；手动去掉 @Disabled 后运行 mvn test -Dtest=LiveApiSmokeTest")
+    @Test
+    void fetchFredUs10y() {
+        RateFetcher fetcher = new RateFetcher();
+        double rf = fetcher.fetchUs10y();
+        System.out.println("US 10Y = " + rf);
+        assertTrue(rf > 0.01 && rf < 0.08, "美国 10Y 应在 1%-8% 区间，实际 " + rf);
+        assertTrue(Double.isNaN(fetcher.fetchCn10y()), "CN 免费源不可用，应返回 NaN");
+    }
 }

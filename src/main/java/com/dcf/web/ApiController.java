@@ -1,6 +1,7 @@
 package com.dcf.web;
 
 import com.dcf.data.DataService;
+import com.dcf.data.RateFetcher;
 import com.dcf.data.csv.CsvImporter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import java.util.Map;
 public class ApiController {
 
     private final DataService dataService = new DataService(Path.of("data/cache"));
+    private final RateFetcher rateFetcher = new RateFetcher();
 
     /**
      * 自动计算 Beta（个股周线 vs 沪深300，近 3 年）。
@@ -33,6 +35,18 @@ public class ApiController {
         } catch (Exception e) {
             return Map.of("beta", null, "error", e.getMessage());
         }
+    }
+
+    /**
+     * 自动获取无风险利率（10 年期国债收益率）。
+     * US：FRED DGS10；CN：免费接口不可用返回 null（由页面提示手动输入）。
+     */
+    @GetMapping("/api/rf")
+    public Map<String, Object> rf(@RequestParam String market) {
+        double v = rateFetcher.fetch(market);
+        return Map.of(
+                "rate", Double.isNaN(v) ? null : v,
+                "source", RateFetcher.sourceLabel(market));
     }
 
     /**

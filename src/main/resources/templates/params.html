@@ -59,9 +59,12 @@
                     <div class="col-12"><hr class="my-1"><b>① 折现率（WACC / CAPM / 手动 三选一）</b></div>
                     <div class="col-md-4">
                         <label class="form-label">无风险利率 Rf（%）</label>
-                        <input class="form-control" id="rf" name="rf" type="number" step="0.01" min="0" max="10"
-                               th:value="${#numbers.formatDecimal(ctx.rf * 100, 1, 2)}" oninput="updateWacc()">
-                        <div class="form-text">10 年期国债：CN≈1.7% / US≈4.3%</div>
+                        <div class="input-group">
+                            <input class="form-control" id="rf" name="rf" type="number" step="0.01" min="0" max="10"
+                                   th:value="${#numbers.formatDecimal(ctx.rf * 100, 1, 2)}" oninput="updateWacc()">
+                            <button class="btn btn-outline-primary" type="button" id="rfBtn" onclick="fetchRf()">自动获取</button>
+                        </div>
+                        <div class="form-text" id="rfHint">10 年期国债：CN≈1.7% / US≈4.3%（FRED 自动）</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Beta</label>
@@ -157,6 +160,32 @@
 <script>
     // 市场默认值提示（不覆盖用户已填值）
     var market = /*[[${ctx.market()}]]*/ 'CN';
+    function fetchRf() {
+        var btn = document.getElementById('rfBtn');
+        var hint = document.getElementById('rfHint');
+        if (market !== 'US') {
+            hint.textContent = '中国 10Y 免费接口暂不可用，请手动输入（默认 1.7%，可从理杏仁/中债官网查询）';
+            return;
+        }
+        btn.disabled = true;
+        hint.textContent = '获取中（FRED DGS10）...';
+        fetch('/api/rf?market=' + encodeURIComponent(market))
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                if (data.rate != null) {
+                    document.getElementById('rf').value = (data.rate * 100).toFixed(2);
+                    hint.textContent = '已获取 FRED DGS10 = ' + (data.rate * 100).toFixed(2) + '%（可覆盖）';
+                } else {
+                    hint.textContent = '获取失败：' + (data.source || '请手动输入');
+                }
+                updateWacc();
+            })
+            .catch(e => {
+                btn.disabled = false;
+                hint.textContent = '获取失败，请手动输入';
+            });
+    }
     var mvMarketCap = /*[[${ctx.company.snapshot.price * ctx.company.snapshot.sharesOutstanding}]]*/ 0;
     var mvInterestDebt = /*[[${ctx.company.snapshot.interestDebt}]]*/ 0;
     function currentMode() {

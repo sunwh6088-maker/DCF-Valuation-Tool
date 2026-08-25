@@ -85,3 +85,21 @@
   - 新增 `src/test/java/com/dcf/model/IndicatorsTest.java`（3 个用例）
 - **测试方式**：`mvn test` 全量 43 个用例通过；边界测试覆盖 1.3/1.1/0.9/0.7 阈值与 NaN 兜底。
 - **可能影响的模块**：结果页卡片区、Excel 估值 Sheet、Markdown 报告；不影响核心估值数字（纯展示层指标）。
+
+---
+
+## 变更 #4：无风险利率自动获取（P1-4，2026-08-25）
+
+- **原因**：手动查 10 年期国债收益率易过时、易查错；调研的 bben1 项目从 FRED 自动拉取。
+- **数据源验证结果**（2026-08-25 实测）：
+  - 美股 US：FRED `DGS10`（10Y 美国国债，日频 CSV，免费无 Key）✅ 可用（实测 4.74%）
+  - 中国 CN：东财 5 个 reportName、新浪 globalbd、中债登 downYearBzqx（返回空模板）、中国货币网接口全部验证失败/已停用；
+    FRED 中国 10Y 系列（IRLTLT01CNM156N）已下架（404）→ CN 暂不自动获取，回退默认 1.7% 并提示手动输入
+- **修改位置**：
+  - 新增 `src/main/java/com/dcf/data/RateFetcher.java`：FRED CSV 拉取 + 24h 缓存 + CN 回退 + 来源标注
+  - `src/main/java/com/dcf/web/ApiController.java`：新增 `GET /api/rf?market=US|CN`
+  - `src/main/resources/templates/params.html`：Rf 输入框新增「自动获取」按钮（US 填 FRED 值；CN 提示手动）
+  - 新增 `src/test/java/com/dcf/data/RateFetcherTest.java`（2 个用例）；`LiveApiSmokeTest` 新增 FRED 冒烟用例（默认 @Disabled）
+- **测试方式**：`mvn test` 全量 45 个用例通过；FRED 联网取值用 curl 实测 + 冒烟用例（可手动启用）。
+- **可能影响的模块**：参数页 Rf 输入、CAPM/WACC 计算链路；CN 用户行为不变（手动输入）；US 用户可一键获取。
+- **已知限制**：CN 自动获取待免费源恢复后补上（可在 RateFetcher.fetchCn10y 内扩展）。
