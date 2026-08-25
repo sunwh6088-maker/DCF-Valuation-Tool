@@ -104,3 +104,16 @@
   - 冒烟：`GET /api/beta?code=600519` → 200 + `{"beta":0.985}`（成功路径）；`GET /api/rf?market=US`（FRED 超时场景）→ 200 + `{"source":"FRED DGS10..."}`（NaN 失败路径不再 500，修复前此场景必 500）
 - **可能影响的模块**：参数页「Beta 自动算」按钮、无风险利率自动获取按钮（/api/beta、/api/rf 两个 JSON 接口）；不涉及估值计算、导出与报告逻辑
 - **教训**：Spring MVC 返回 Map 时若字段可能为 null（"可选值 + 错误信息"模式），必须用允许 null 的 Map 实现（HashMap），不能用 `Map.of`/`Map.ofEntries`。
+
+---
+
+## Bug #8：无会话访问 /params 重定向后首页版本号显示 vnull（发版前冒烟发现）
+
+- **状态**：已修复（2026-08-25，并入 v1.1.10）
+- **原因**：`GET /params` 在无会话时会创建 Session 并返回 302，Tomcat 默认在 Location 里附加 URL 重写 `;jsessionid=xxx`；客户端跟随该 URL 访问 `/;jsessionid=xxx` 时，该路径不能精确匹配 `@GetMapping("/")`，落入 Spring Boot `WelcomePageHandlerMapping` 的 welcome 页兜底渲染——直接渲染 `index.html` 模板但不注入 `version` 模型属性，页面头部显示 `Java 版 vnull`（正常访问 `/` 走显式控制器，显示正确版本号）。
+- **修改位置**：`src/main/resources/application.properties` 新增 `server.servlet.session.tracking-modes=cookie`，禁用 URL 重写式 Session 跟踪，302 Location 不再附加 `;jsessionid`
+- **测试方式**：
+  - 修复前：`curl -s -L http://localhost:8501/params` 首跳 Location 含 `;jsessionid=`，页面渲染 `vnull`
+  - 修复后：`curl -s -o NUL -w "%{redirect_url}" http://localhost:8501/params` 返回 `http://localhost:8501/`（无 `;jsessionid`），`curl -s -L` 渲染 `v1.1.10`；`/input/a;jsessionid=X` 等显式路由不受影响（回归验证）
+- **可能影响的模块**：Session 跟踪策略（全部页面跳转，Cookie 必须可用——现代浏览器默认开启，无影响）；welcome 页/index 首页显示；其余页面/API 无变化
+- **教训**：冒烟测试不能只看 200，要跟随 302 检查最终渲染内容；Spring Boot 默认开启 URL 重写 Session 跟踪，重定向 Location 会带 `;jsessionid`，若目标页存在 welcome 页兜底渲染（无模型）就会出现"隐性丢模型"问题。
