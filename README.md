@@ -114,6 +114,27 @@ DCF-Valuation-Tool/
 - `main`：Java 版（当前版本 v1.0.0）
 - `python-prototype`：Python/Streamlit 原型（后续计划按此架构重做 Python 版，两版本并行维护）
 
+## Docker 部署（免装 JDK）
+
+```bash
+docker build -t dcf-valuation-tool .
+docker run -p 8501:8501 -v "$(pwd)/data:/app/data" dcf-valuation-tool
+```
+
+浏览器打开 <http://localhost:8501>。`data` 卷用于持久化抓取缓存。
+
+## 部署到公网（让别人直接访问）
+
+本项目是本地 Web 应用，`localhost` 只在本机有效。若希望**不装环境直接访问**：
+
+- **免费 PaaS**：把本仓库部署到 Railway / Render / Fly.io（Dockerfile 已就绪），
+  构建后即得公网地址，适合演示与试用
+- **云服务器**：`java -jar target/dcf-valuation-tool-1.0.0.jar`（需 JDK 21），
+  用 Nginx/Caddy 反向代理 + 域名（HTTPS）
+- **内网穿透**：ngrok / frp 仅适合临时演示，不建议长期公开
+
+> 数据源（新浪/东财）对境外服务器可能限流，公网部署建议选国内节点（如腾讯云/阿里云轻量服务器）。
+
 ## 参与贡献
 
 欢迎提交 Issue 与 PR，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。

@@ -141,3 +141,15 @@
 - **测试方式**：`mvn test` 全量 50 个用例通过；固定数据手工核算折溢价公式、缺股价 NaN、样本不足跳过。
 - **可能影响的模块**：结果页（新增图表）、Excel/报告（新增内容）；核心估值数字不受影响；历史股价接口失败时仅提示不报错。
 - **已知限制**：历史股本/净债务按当前值近似（历史值无免费源）；美股不支持（无免费历史股价源）。
+
+---
+
+## 变更 #7：GitHub Actions CI + Dockerfile + 公网部署指南（P2-7 / P2-8，2026-08-25）
+
+- **原因**：协作后 PR 无自动验证；非 Java 用户部署门槛高；`localhost` 地址仅本机可访问，需要公网部署路径说明。
+- **修改位置**：
+  - 新增 `.github/workflows/ci.yml`：JDK 21 + mvn test + package + 上传 jar artifact（push/PR 触发）
+  - 新增 `Dockerfile`（多阶段：maven 构建 → temurin JRE 运行，EXPOSE 8501）+ `.dockerignore`
+  - `README.md`：新增「Docker 部署（免装 JDK）」「部署到公网」两节（PaaS / 云服务器 / 内网穿透三方案，含数据源限流提示）
+- **测试方式**：本地 `mvn test` 全量 50 个用例通过；push 后观察 GitHub Actions 状态（build-and-test 变绿）。
+- **可能影响的模块**：工程流程（CI 不参与运行时代码）；Docker 镜像构建产物。
