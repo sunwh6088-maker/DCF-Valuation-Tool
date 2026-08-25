@@ -216,3 +216,21 @@
   - `python-prototype` 分支（单独提交 `0d51f76`）：`run.bat` 增加 app.py 缺失检测与友好提示；README 从 `# First` 改为完整 WIP 说明（现状/计划/许可）
 - **测试方式**：`mvn test` 全量 54 个用例通过（2 跳过）；冒烟：`cmd /c run.bat jar 8502` 启动后 `http://127.0.0.1:8502/` 返回 200（Tomcat 日志确认端口 8502），测试进程已清理；`run.sh` 无法在本机验证（无 sh），语法按 POSIX 规范手写复查
 - **可能影响的模块**：启动流程（run.bat/run.sh）、README/分支说明（仅文档）；不影响 Java 业务代码与估值逻辑
+## 变更 #11：Maven Wrapper + 脚本 Java 21 检查 + 可执行位/行尾修正（v1.1.1，2026-08-25 晚）
+
+- **原因**：上一轮审查提出的两个可移植性建议落地：
+  1. 别人克隆仓库后若未安装 Maven，`run.bat`/`run.sh` 的开发模式直接报「mvn 不是内部或外部命令」；
+  2. 未装 Java 或版本低于 21 时，报错信息不友好（UnsupportedClassVersionError 等）；
+  3. 仓库在 `core.autocrlf=true` 环境下，`run.sh`/`mvnw` 可能被检出为 CRLF，Linux/macOS 上脚本首行 `#!/usr/bin/env sh\r` 直接失败；且 `run.sh`、`mvnw` 缺少可执行位（`./run.sh` 会权限拒绝）。
+- **修改位置**：
+  - 新增 `mvnw`、`mvnw.cmd`、`.mvn/wrapper/maven-wrapper.properties`（maven-wrapper-plugin `only-script` 模式，不提交 wrapper jar；`distributionUrl` 指向 Maven 3.9.9，properties 内含国内清华镜像备选注释）
+  - `run.bat` / `run.sh`：开头新增 JDK 21 检测（缺失/低版本给出 adoptium 下载链接并退出）；开发模式优先使用 `mvnw.cmd`/`mvnw`，无 wrapper 时回退 `mvn`
+  - 新增 `.gitattributes`：`mvnw`、`run.sh` 强制 `eol=lf`（防 CRLF 破坏 shell 脚本）
+  - `git update-index --chmod=+x mvnw run.sh`（修正可执行位）
+  - `README.md`：前置要求改为「仅需 JDK 21」；快速开始与测试命令改为 `./mvnw`，并说明脚本自动检查 Java 版本
+- **测试方式**：
+  - `mvnw.cmd -v`：首次运行自动下载 Maven 3.9.9 成功（输出 Apache Maven 3.9.9 + Java 21.0.12）
+  - 冒烟 1（无 Java）：`cmd /c "set PATH=C:\Windows\System32&& run.bat"` → 输出 `[ERROR] 未检测到 Java`，退出码 1
+  - 冒烟 2（完整链路）：`cmd /c run.bat 8502` → 经 mvnw 自动编译并启动，`http://127.0.0.1:8502/` 返回 200，Tomcat 日志确认端口 8502，测试进程已清理
+  - `mvnw.cmd test` 全量测试（见提交时输出）
+- **可能影响的模块**：启动流程（run.bat/run.sh/新增 wrapper）、README；不影响 Java 业务代码；`run.sh` 新增的 awk 解析仅在本机无 sh 环境下无法实测，已按 POSIX 语法人工复查

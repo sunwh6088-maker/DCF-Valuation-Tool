@@ -30,12 +30,14 @@
 
 ## 快速开始
 
-前置要求：JDK 21、Maven 3.9+（国内可配置阿里云镜像加速）。
+前置要求：**仅需 JDK 21**（无需安装 Maven——仓库内置 Maven Wrapper，首次运行自动下载 Maven 3.9.9；
+下载慢可把 `.mvn/wrapper/maven-wrapper.properties` 里的 `distributionUrl` 换成清华镜像，文件内有注释）。
+启动脚本（`run.bat` / `run.sh`）会自动检查 Java 版本并优先使用内置 wrapper。
 
 ```bash
 git clone https://github.com/sunwh6088-maker/DCF-Valuation-Tool.git
 cd DCF-Valuation-Tool
-mvn spring-boot:run          # 方式一：开发模式（自动编译）
+./mvnw spring-boot:run       # 方式一：开发模式（内置 wrapper，自动编译，无需装 Maven）
 ./run.sh                     # 方式二：一键启动脚本（Linux/macOS；Windows 用 run.bat）
 ```
 
@@ -54,8 +56,8 @@ HTTPS_PROXY=http://127.0.0.1:7890 ./run.sh              # Linux/macOS
 运行测试：
 
 ```bash
-mvn test          # 全部单元测试
-mvn test -Dtest=LiveApiSmokeTest   # 真实网络抓取冒烟（需要联网）
+./mvnw test                        # 全部单元测试（已装 Maven 也可用 mvn test）
+./mvnw test -Dtest=LiveApiSmokeTest  # 真实网络抓取冒烟（需要联网）
 ```
 
 
