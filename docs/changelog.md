@@ -245,3 +245,70 @@
 - **测试方式**：`mvnw test` 全量 54 个用例通过；`mvnw -DskipTests package` 产出 1.1.2 jar；
   冒烟：`cmd /c run.bat jar 8502` 启动后 `http://127.0.0.1:8502/` 返回 200，测试进程已清理
 - **可能影响的模块**：打包产物文件名（旧 1.1.1 jar 不再被脚本引用）、Release 资产；无业务逻辑变化
+## 变更 #13：数据层扩展——进阶科目（净利润/折旧摊销/资产负债/股本）（2026-08-25 晚）
+
+- **原因**：FCFF 口径、PE 退出法、Piotroski F-Score 需要比「OCF/Capex/营收/EBIT」更多的财务科目；
+  原 `HistoricalData` 只有 7 个字段，无法支撑这些功能。
+- **修改位置**：
+  - `src/main/java/com/dcf/data/model/HistoricalData.java`：新增 `ExtraFinancials` 记录（netIncome/depreciation/totalAssets/totalLiabilities/currentAssets/currentLiabilities/grossProfit/sharesCapital），保留 7 参兼容构造器，新增 `extraAt()` 便捷访问
+  - `src/main/java/com/dcf/data/sina/SinaFinanceParser.java`：新增 8 个科目关键词；净利润用「精确匹配优先」（避免命中归母净利润）；折旧摊销为现金流量表内所有含「折旧/摊销」科目求和；毛利 = 营收 − 营业成本
+  - `src/main/java/com/dcf/data/csv/CsvImporter.java`：模板新增 8 个选填列 + 理杏仁关键词映射（净利润/折旧摊销/总资产/总负债/流动资产/流动负债/营业成本/股本）
+  - `src/main/java/com/dcf/web/PageController.java`：手动输入新增 8 个选填 `@RequestParam`，随年份排序对齐
+  - `src/main/resources/templates/input-a.html`、`input-us.html`、`static/js/common.js`：手动输入表新增 8 个选填列（带说明文案）
+- **测试方式**：`mvnw test` 全量通过（含既有 CsvImporterTest/SinaFinanceParserTest 回归）；冒烟用手动输入带进阶科目数据走通 /input/manual → /params → /result
+- **可能影响的模块**：所有数据入口（自动抓取/CSV/手动）、`HistoricalData` 构造调用点；老数据（extra=null）完全向后兼容
+
+---
+
+## 变更 #14：FCFF 备选现金流口径（EBIT 起步）（2026-08-25 晚）
+
+- **原因**：简化 FCF（OCF−Capex）未含税盾与营运资本变动，对重资产/营运资金占用大的公司偏差明显；方案暂缓项落地。
+- **修改位置**：
+  - 新增 `src/main/java/com/dcf/model/FcfCalculator.java`：`fcffSeries()` = EBIT×(1−t) + D&A − Capex − ΔNWC（首年 NaN）；`baseValue()` 最近一年优先、回退近 3 年均值
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 `fcfMode`/`fcfModeUsed`/`fcffWarning`/`baseFcfValue`
+  - `src/main/java/com/dcf/service/ValuationService.java`：按口径计算基准 FCF，FCFF 数据不足自动回退简化口径并提示
+  - `src/main/resources/templates/params.html`：现金流口径 radio；`result.html` 假设表显示口径与实际生效值
+  - `ExcelExporter.java`/`ReportService.java`：说明页/报告口径描述同步
+- **测试方式**：新增 `FcfCalculatorTest`（5 用例：简化口径、FCFF 手工核算、缺折旧→NaN、基准值回退、NWC）；冒烟三阶段+FCFF 组合走通
+- **可能影响的模块**：基准 FCF → 全部估值结果；参数页/结果页/Excel/报告展示
+
+---
+
+## 变更 #15：多模型切换（零增长 / 三阶段）（2026-08-25 晚）
+
+- **原因**：两阶段模型对低增长成熟公司（零增长更合适）与长赛道公司（需要更细的增长分段）不够灵活；方案暂缓项落地。
+- **修改位置**：
+  - `src/main/java/com/dcf/model/DcfModel.java`：新增 `forecastGrowthPathThreeStage(g1,g2,g3,n1,n2,nTransition)`（高增长恒定 → 线性过渡到成长期 → 线性过渡到永续）
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 `modelType`/`gSecond`/`nSecond`
+  - `src/main/java/com/dcf/service/ValuationService.java`：统一估值管线 `valueOnce()`（主结果与三情景共用同一口径），零增长强制 g=0，三阶段走新路径
+  - `PageController.saveParams`：新增参数绑定与校验（模型白名单、年数合计 ≤20）
+  - `params.html`：模型 radio + 三阶段参数显隐联动；`result.html`/Excel/报告：模型标签与成长期参数
+- **测试方式**：新增 `DcfModelExtendedTest`（三阶段增长率路径逐点核对）；三阶段冒烟（3+3+2 年路径正确折现）
+- **可能影响的模块**：估值管线（主结果/三情景/敏感性）、参数页、结果页、Excel、报告
+
+---
+
+## 变更 #16：PE 退出法终值（2026-08-25 晚）
+
+- **原因**：Gordon 终值对永续增长假设极敏感；PE 退出法是机构常用交叉验证口径；方案暂缓项落地。
+- **修改位置**：
+  - `src/main/java/com/dcf/model/DcfModel.java`：新增 `dcfValuationPeExit()`/`fullValuationPeExit()`（TV = 退出PE × 期末净利润）
+  - `src/main/java/com/dcf/service/ValuationService.java`：终值方法分发；净利润率估算（历史净利润率 → 近3年均值 → EBIT×(1−t)/营收 近似，均标注来源）；期末净利润 = 基准营收沿增长率路径复利 × 净利润率；敏感性矩阵列轴切换为「退出PE」（±5，步长 2.5）
+  - `src/main/java/com/dcf/model/SensitivityResult.java`：新增 `xLabel`（列轴名称，默认"永续增长率"）
+  - `ValuationContext`：`terminalMode`/`exitPe`/`terminalNetIncome`/`netMarginUsed`/`netMarginSource`
+  - `params.html`/`result.html`/`ExcelExporter`/`ReportService`：终值方法选择、退出PE 输入、敏感性标题/轴标签联动
+- **测试方式**：`DcfModelExtendedTest`（PE 终值手工核算 TV=PE×NI、PV 折现、完整估值）；冒烟 PE 模式敏感性轴显示「退出PE」
+- **可能影响的模块**：终值计算与敏感性矩阵（Gordon/PE 两套轴）、结果页热力图、Excel 敏感性 sheet、报告
+
+---
+
+## 变更 #17：Piotroski F-Score 财务质量打分（2026-08-25 晚）
+
+- **原因**：DCF 假设现金流质量可持续，但缺乏对财务质量的客观检验；方案暂缓项落地（与 DCF 互补的财务健康快检）。
+- **修改位置**：
+  - 新增 `src/main/java/com/dcf/model/FScoreCalculator.java`：9 项二值指标（ROA/现金流/ROA改善/应计质量/杠杆/流动比率/新股/毛利率/周转率），数据不足项记 null 不参与计分
+  - `src/main/java/com/dcf/web/ValuationContext.java`：`fScores` 列表（最近 3 个可计分年份）
+  - `src/main/java/com/dcf/service/ValuationService.java`：compute() 中计算 F-Score（失败不影响主流程）
+  - `result.html`：F-Score 卡片（总分 + 9 项明细表）；`ExcelExporter` 新增「F-Score」sheet（第 9 个）；`ReportService` 新增 F-Score 章节
+- **测试方式**：新增 `FScoreCalculatorTest`（3 用例：9 项全命中、缺数据→null 降级、年份截断）；冒烟结果页/报告/Excel 均出现 F-Score
+- **可能影响的模块**：结果页/Excel/报告（新增内容，不影响估值数字）；数据不足时显示为空

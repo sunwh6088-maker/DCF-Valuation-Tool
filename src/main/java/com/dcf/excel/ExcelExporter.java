@@ -13,14 +13,17 @@ import java.time.LocalDate;
 /**
  * Excel 报告导出器（Apache POI）。
  *
- * <p>导出 6 个 sheet：
+ * <p>导出 9 个 sheet：
  * <ol>
  *   <li>说明：模型口径与免责声明</li>
- *   <li>原始数据：历史财务 + 快照</li>
- *   <li>假设：估值参数</li>
+ *   <li>原始数据：历史财务（含进阶科目）+ 快照</li>
+ *   <li>假设：估值参数（模型/口径/终值方法）</li>
  *   <li>预测：显式期增长率与 FCF</li>
  *   <li>估值：EV 拆分与每股结论</li>
- *   <li>敏感性：折现率 × 永续增长率矩阵</li>
+ *   <li>三情景：保守 / 中性 / 乐观</li>
+ *   <li>历史回溯：模型估值 vs 年末股价</li>
+ *   <li>F-Score：Piotroski 财务质量打分</li>
+ *   <li>敏感性：折现率 × 永续增长率（或退出 PE）矩阵</li>
  * </ol>
  */
 public class ExcelExporter {
@@ -39,22 +42,31 @@ public class ExcelExporter {
             row(s1, 1, "公司：" + ctx.getCompany().snapshot().name()
                     + "（" + ctx.getCompany().code() + "）");
             row(s1, 2, "数据来源：" + ctx.getCompany().source() + " | 生成日期：" + LocalDate.now());
-            row(s1, 4, "模型口径：两阶段 DCF");
-            row(s1, 5, "显式预测期 10 年（前 5 年固定增长率 + 后 5 年线性过渡到永续增长率）");
-            row(s1, 6, "终值：Gordon 增长模型 TV = FCF_n × (1+g) / (r-g)");
+            row(s1, 4, "模型口径：" + modelLabel(ctx));
+            row(s1, 5, "现金流口径：" + ("fcff".equals(ctx.getFcfModeUsed()) ? "FCFF（EBIT 起步）" : "简化 FCF（经营现金流-资本开支）"));
+            row(s1, 6, "终值方法：" + ("pe".equals(ctx.getTerminalMode()) ? "PE 退出法（退出PE × 期末净利润）" : "Gordon 增长 TV = FCF_n × (1+g) / (r-g)"));
             row(s1, 7, "股权价值 = 企业价值 - 净债务 - 少数股东权益；每股价值 = 股权价值 / 总股本");
             row(s1, 9, "免责声明：本报告由模型自动生成，仅供学习研究参考，不构成投资建议。");
             s1.setColumnWidth(0, 9000);
 
             // ---------- 2. 原始数据 ----------
             Sheet s2 = wb.createSheet("原始数据");
-            String[] headers = {"年份", "经营现金流", "资本开支", "自由现金流", "营收", "EBIT", "税前利润", "所得税"};
+            String[] headers = {"年份", "经营现金流", "资本开支", "自由现金流", "营收", "EBIT", "税前利润", "所得税",
+                    "净利润", "折旧摊销", "资产总计", "负债合计", "流动资产", "流动负债", "毛利", "股本"};
             headerRow(s2, 0, headers, bold);
             HistoricalData h = ctx.getCompany().history();
             for (int i = 0; i < h.size(); i++) {
                 row(s2, i + 1, h.years()[i], h.ocf()[i], h.capex()[i],
                         h.ocf()[i] - h.capex()[i], h.revenue()[i], h.ebit()[i],
-                        h.pretaxIncome()[i], h.taxExpense()[i]);
+                        h.pretaxIncome()[i], h.taxExpense()[i],
+                        h.extraAt(i, HistoricalData.EXTRA_NET_INCOME),
+                        h.extraAt(i, HistoricalData.EXTRA_DEPRECIATION),
+                        h.extraAt(i, HistoricalData.EXTRA_TOTAL_ASSETS),
+                        h.extraAt(i, HistoricalData.EXTRA_TOTAL_LIABILITIES),
+                        h.extraAt(i, HistoricalData.EXTRA_CURRENT_ASSETS),
+                        h.extraAt(i, HistoricalData.EXTRA_CURRENT_LIABILITIES),
+                        h.extraAt(i, HistoricalData.EXTRA_GROSS_PROFIT),
+                        h.extraAt(i, HistoricalData.EXTRA_SHARES_CAPITAL));
             }
             row(s2, h.size() + 2, "快照", bold);
             row(s2, h.size() + 3, "当前股价", ctx.getCompany().snapshot().price());
@@ -85,6 +97,20 @@ public class ExcelExporter {
             row(s3, 12, "高增长年数", ctx.getNFirst(), "");
             row(s3, 13, "过渡年数", ctx.getNTransition(), "线性过渡到永续增长率");
             row(s3, 14, "永续增长率 g", pct(ctx.getGTerminal()), "常取 2%-3%");
+            row(s3, 15, "估值模型", modelLabel(ctx), "");
+            if ("threeStage".equals(ctx.getModelType())) {
+                row(s3, 16, "成长期增长率 g2", pct(ctx.getGSecond()), "三阶段：高增长之后的中速期");
+                row(s3, 17, "成长期年数", ctx.getNSecond(), "");
+            }
+            row(s3, 18, "现金流口径", "fcff".equals(ctx.getFcfModeUsed()) ? "FCFF（EBIT 起步）" : "简化 FCF", "");
+            row(s3, 19, "终值方法", "pe".equals(ctx.getTerminalMode()) ? "PE 退出法" : "Gordon 永续增长", "");
+            if ("pe".equals(ctx.getTerminalMode())) {
+                row(s3, 20, "退出市盈率", ctx.getExitPe(), "");
+                row(s3, 21, "期末净利润预测", ctx.getTerminalNetIncome(), "净利润率来源：" + ctx.getNetMarginSource());
+            }
+            if (!ctx.getFcffWarning().isEmpty()) {
+                row(s3, 22, "口径提示", ctx.getFcffWarning(), "");
+            }
             autoWidth(s3, 3);
 
             // ---------- 4. 预测 ----------
@@ -141,15 +167,36 @@ public class ExcelExporter {
             }
             autoWidth(s6b, 4);
 
+            // ---------- 7.5 F-Score ----------
+            Sheet s6c = wb.createSheet("F-Score");
+            String[] fsHeaders = {"年份", "总分", "ROA>0", "现金流>0", "ROA改善", "现金流>净利润",
+                    "杠杆下降", "流动比率上升", "未增发新股", "毛利率上升", "周转率上升"};
+            headerRow(s6c, 0, fsHeaders, bold);
+            int fsRow = 1;
+            for (com.dcf.model.FScoreCalculator.FScoreResult fs : ctx.getFScores()) {
+                String[] cells = new String[fs.items().length];
+                for (int i = 0; i < cells.length; i++) {
+                    Boolean b = fs.items()[i];
+                    cells[i] = b == null ? "—" : (b ? "✓" : "✗");
+                }
+                row(s6c, fsRow++, fs.year(), fs.score() + "/" + fs.itemsAvailable(), (Object[]) cells);
+            }
+            autoWidth(s6c, fsHeaders.length);
+
             // ---------- 8. 敏感性 ----------
             Sheet s6 = wb.createSheet("敏感性");
             SensitivityResult sen = ctx.getSensitivity();
             Row hr = s6.createRow(0);
-            hr.createCell(0).setCellValue("折现率 \\ 永续增长率");
+            hr.createCell(0).setCellValue("折现率 \\ " + sen.xLabel());
             hr.getCell(0).setCellStyle(bold);
+            boolean isPeAxis = "退出PE".equals(sen.xLabel());
             for (int c = 0; c < sen.cols(); c++) {
                 Cell cell = hr.createCell(c + 1);
-                cell.setCellValue(pct(sen.growthRates()[c]));
+                if (isPeAxis) {
+                    cell.setCellValue(sen.growthRates()[c]);
+                } else {
+                    cell.setCellValue(pct(sen.growthRates()[c]));
+                }
                 cell.setCellStyle(bold);
             }
             for (int r = 0; r < sen.rows(); r++) {
@@ -161,7 +208,7 @@ public class ExcelExporter {
                     double v = sen.values()[r][c];
                                         Cell cell = row.createCell(c + 1);
                     if (Double.isNaN(v)) {
-                        cell.setCellValue("g≥r");
+                        cell.setCellValue("N/A");
                     } else {
                         cell.setCellValue(Math.round(v * 100) / 100.0);
                     }
@@ -178,6 +225,14 @@ public class ExcelExporter {
     }
 
     // ---------- 工具 ----------
+
+    private static String modelLabel(ValuationContext ctx) {
+        return switch (ctx.getModelType()) {
+            case "zeroGrowth" -> "零增长（g=0）";
+            case "threeStage" -> "三阶段（高增长→成长期→永续）";
+            default -> "两阶段（高增长→过渡→永续）";
+        };
+    }
 
     private static void headerRow(Sheet s, int r, String[] headers, CellStyle bold) {
         Row row = s.createRow(r);

@@ -77,7 +77,7 @@
     <div class="row g-3 mb-4">
         <div class="col-lg-7">
             <div class="card p-3">
-                <h6>敏感性热力图（每股内在价值：折现率 × 永续增长率）</h6>
+                <h6 th:text="'敏感性热力图（每股内在价值：折现率 × ' + ${ctx.sensitivity.xLabel} + '）'"></h6>
                 <div id="sensitivity-chart"></div>
             </div>
         </div>
@@ -137,9 +137,50 @@
                     <tr><td class="text-muted">高增长期增长率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.gFirst * 100, 2, 2)} + '% × ' + ${ctx.nFirst} + ' 年'"></td></tr>
                     <tr><td class="text-muted">过渡期</td><td class="text-end" th:text="${ctx.nTransition} + ' 年线性过渡'"></td></tr>
                     <tr><td class="text-muted">永续增长率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.gTerminal * 100, 2, 2)} + '%'"></td></tr>
+                    <tr><td class="text-muted">估值模型</td><td class="text-end" th:text="${ctx.modelType == 'threeStage'} ? '三阶段（高增长→成长期→永续）' : (${ctx.modelType == 'zeroGrowth'} ? '零增长（g=0）' : '两阶段（高增长→过渡→永续）')"></td></tr>
+                    <tr th:if="${ctx.modelType == 'threeStage'}"><td class="text-muted">成长期</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.gSecond * 100, 2, 2)} + '% × ' + ${ctx.nSecond} + ' 年'"></td></tr>
+                    <tr><td class="text-muted">现金流口径</td><td class="text-end" th:text="${ctx.fcfModeUsed == 'fcff'} ? 'FCFF（EBIT 起步）' : '简化 FCF（经营现金流−资本开支）'"></td></tr>
+                    <tr><td class="text-muted">终值方法</td><td class="text-end" th:text="${ctx.terminalMode == 'pe'} ? 'PE 退出法' : 'Gordon 永续增长'"></td></tr>
+                    <tr th:if="${ctx.terminalMode == 'pe'}"><td class="text-muted">退出市盈率</td><td class="text-end" th:text="${ctx.exitPe}"></td></tr>
+                    <tr th:if="${ctx.terminalMode == 'pe'}"><td class="text-muted">期末净利润预测</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.terminalNetIncome, 0, 0)}"></td></tr>
+                    <tr th:if="${ctx.terminalMode == 'pe'}"><td class="text-muted">净利润率来源</td><td class="text-end" th:text="${ctx.netMarginSource}"></td></tr>
+                    <tr th:if="${!ctx.fcffWarning.isEmpty()}"><td class="text-muted">口径提示</td><td class="text-end text-warning" th:text="${ctx.fcffWarning}"></td></tr>
                 </table>
             </div>
         </div>
+    </div>
+
+    <div class="card p-3 mt-3" th:if="${!ctx.fScores.isEmpty()}">
+        <h6>Piotroski F-Score（财务质量，满分 9 分） <span class="text-muted small">—— 9 项二值指标：ROA、现金流、应计质量、杠杆、流动比率、股本、毛利率、资产周转率</span></h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-1">
+                <thead class="table-light">
+                <tr>
+                    <th>年份</th>
+                    <th class="text-center">总分</th>
+                    <th class="text-center">ROA &gt; 0</th>
+                    <th class="text-center">经营现金流 &gt; 0</th>
+                    <th class="text-center">ROA 改善</th>
+                    <th class="text-center">现金流 &gt; 净利润</th>
+                    <th class="text-center">杠杆下降</th>
+                    <th class="text-center">流动比率上升</th>
+                    <th class="text-center">未增发新股</th>
+                    <th class="text-center">毛利率上升</th>
+                    <th class="text-center">周转率上升</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="fs : ${ctx.fScores}">
+                    <td th:text="${fs.year}"></td>
+                    <td class="text-center fw-bold" th:text="${fs.score} + '/' + ${fs.itemsAvailable}"></td>
+                    <td th:each="it : ${fs.items}" class="text-center"
+                        th:text="${it == null} ? '—' : (${it} ? '✓' : '✗')"
+                        th:classappend="${it != null && it} ? 'text-success' : (${it != null} ? 'text-danger' : 'text-muted')"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mb-0">分数越高财务质量越好（8-9 分优秀，0-2 分较差）；— 表示该年数据不足。数据来自历史财务的进阶科目（净利润/总资产/负债/流动比率/毛利/股本）。</p>
     </div>
 
     <div class="d-flex justify-content-between align-items-center">
@@ -160,6 +201,8 @@
     var sens = /*[[${ctx.sensitivity.values}]]*/ [[0]];
     var rRates = /*[[${ctx.sensitivity.discountRates}]]*/ [0];
     var gRates = /*[[${ctx.sensitivity.growthRates}]]*/ [0];
+    var xLabel = /*[[${ctx.sensitivity.xLabel}]]*/ '永续增长率';
+    var isPeAxis = xLabel.indexOf('PE') >= 0;
     // FCF 预测数据
     var fcfForecast = /*[[${ctx.result.fcfForecast}]]*/ [0];
     var growthPath = /*[[${ctx.result.growthPath}]]*/ [0];
@@ -182,9 +225,9 @@
     }
     var heat = echarts.init(document.getElementById('sensitivity-chart'));
     heat.setOption({
-        tooltip: { formatter: p => '折现率 ' + (rRates[p.value[1]] * 100).toFixed(1) + '%<br>永续增长 ' + (gRates[p.value[0]] * 100).toFixed(2) + '%<br>每股价值 ' + p.value[2] },
+        tooltip: { formatter: p => '折现率 ' + (rRates[p.value[1]] * 100).toFixed(1) + '%<br>' + xLabel + ' ' + (isPeAxis ? gRates[p.value[0]] : (gRates[p.value[0]] * 100).toFixed(2) + '%') + '<br>每股价值 ' + p.value[2] },
         grid: { left: 70, right: 20, top: 20, bottom: 60 },
-        xAxis: { type: 'category', data: gRates.map(g => (g * 100).toFixed(2) + '%'), name: '永续增长率' },
+        xAxis: { type: 'category', data: gRates.map(g => isPeAxis ? g : (g * 100).toFixed(2) + '%'), name: xLabel },
         yAxis: { type: 'category', data: rRates.map(r => (r * 100).toFixed(1) + '%'), name: '折现率' },
         visualMap: { min: Math.min.apply(null, heatData.map(d => d[2])), max: Math.max.apply(null, heatData.map(d => d[2])),
             calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#e74c3c', '#f1c40f', '#2ecc71'] } },

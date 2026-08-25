@@ -129,9 +129,19 @@ public class PageController {
                          @RequestParam(required = false) String[] ebit,
                          @RequestParam(required = false) String[] pretax,
                          @RequestParam(required = false) String[] tax,
+                         @RequestParam(required = false) String[] netIncome,
+                         @RequestParam(required = false) String[] depreciation,
+                         @RequestParam(required = false) String[] totalAssets,
+                         @RequestParam(required = false) String[] totalLiabilities,
+                         @RequestParam(required = false) String[] currentAssets,
+                         @RequestParam(required = false) String[] currentLiabilities,
+                         @RequestParam(required = false) String[] costOfRevenue,
+                         @RequestParam(required = false) String[] sharesCapital,
                          HttpSession session, Model model) {
         try {
-            HistoricalData history = buildHistory(years, ocf, capex, revenue, ebit, pretax, tax);
+            HistoricalData history = buildHistory(years, ocf, capex, revenue, ebit, pretax, tax,
+                    netIncome, depreciation, totalAssets, totalLiabilities,
+                    currentAssets, currentLiabilities, costOfRevenue, sharesCapital);
             SnapshotData snapshot = new SnapshotData(name, code, price, shares,
                     cash, interestDebt, minority, LocalDateTime.now().toLocalDate().toString());
             ValuationContext c = ctx(session);
@@ -168,11 +178,18 @@ public class PageController {
                              @RequestParam(defaultValue = "0.025") double gTerminal,
                              @RequestParam(defaultValue = "5") int nFirst,
                              @RequestParam(defaultValue = "5") int nTransition,
+                             @RequestParam(defaultValue = "twoStage") String modelType,
+                             @RequestParam(defaultValue = "0.05") double gSecond,
+                             @RequestParam(defaultValue = "5") int nSecond,
+                             @RequestParam(defaultValue = "simple") String fcfMode,
+                             @RequestParam(defaultValue = "gordon") String terminalMode,
+                             @RequestParam(defaultValue = "15") double exitPe,
                              HttpSession session, Model model) {
         ValuationContext c = ctx(session);
         try {
             // 范围校验（后端兜底，前端已预校验）
-            check(c, rf, beta, erp, creditSpread, discountMode, manualRate, taxRate, gFirst, gTerminal, nFirst, nTransition);
+            check(c, rf, beta, erp, creditSpread, discountMode, manualRate, taxRate, gFirst, gTerminal,
+                    nFirst, nTransition, modelType, gSecond, nSecond, fcfMode, terminalMode, exitPe);
             c.setRf(rf);
             c.setBetaInput(beta);
             c.setErp(erp);
@@ -184,6 +201,12 @@ public class PageController {
             c.setGTerminal(gTerminal);
             c.setNFirst(nFirst);
             c.setNTransition(nTransition);
+            c.setModelType(modelType);
+            c.setGSecond(gSecond);
+            c.setNSecond(nSecond);
+            c.setFcfMode(fcfMode);
+            c.setTerminalMode(terminalMode);
+            c.setExitPe(exitPe);
             valuationService.compute(c);
             return "redirect:/result";
         } catch (Exception e) {
@@ -216,12 +239,24 @@ public class PageController {
     /** 手动输入组装历史数据（含年份连续性校验）。 */
     private HistoricalData buildHistory(String[] years, String[] ocf, String[] capex,
                                         String[] revenue, String[] ebit, String[] pretax,
-                                        String[] tax) {
+                                        String[] tax,
+                                        String[] netIncome, String[] depreciation,
+                                        String[] totalAssets, String[] totalLiabilities,
+                                        String[] currentAssets, String[] currentLiabilities,
+                                        String[] costOfRevenue, String[] sharesCapital) {
         int n = years.length;
         int[] ys = new int[n];
         double[] oc = new double[n], ca = new double[n];
         double[] re = fill(revenue, n), eb = fill(ebit, n);
         double[] pr = fill(pretax, n), tx = fill(tax, n);
+        double[] ni = fill(netIncome, n), dep = fill(depreciation, n);
+        double[] ta = fill(totalAssets, n), tl = fill(totalLiabilities, n);
+        double[] cua = fill(currentAssets, n), cul = fill(currentLiabilities, n);
+        double[] cost = fill(costOfRevenue, n), sc = fill(sharesCapital, n);
+        double[] gp = new double[n];
+        for (int i = 0; i < n; i++) {
+            gp[i] = (!Double.isNaN(re[i]) && !Double.isNaN(cost[i])) ? re[i] - cost[i] : Double.NaN;
+        }
         for (int i = 0; i < n; i++) {
             ys[i] = Integer.parseInt(years[i].trim());
             oc[i] = parse("经营现金流", ocf[i]);
@@ -234,7 +269,7 @@ public class PageController {
         }
         java.util.Arrays.sort(order, java.util.Comparator.comparingInt(i -> ys[i]));
         int[] sortedY = new int[n];
-        double[][] arrays = {oc, ca, re, eb, pr, tx};
+        double[][] arrays = {oc, ca, re, eb, pr, tx, ni, dep, ta, tl, cua, cul, gp, sc};
         double[][] sortedA = new double[arrays.length][n];
         for (int i = 0; i < n; i++) {
             int from = order[i];
@@ -256,7 +291,9 @@ public class PageController {
                 throw new IllegalArgumentException("年份必须连续：" + ys[i - 1] + " -> " + ys[i]);
             }
         }
-        return new HistoricalData(ys, oc, ca, re, eb, pr, tx);
+        HistoricalData.ExtraFinancials extra = new HistoricalData.ExtraFinancials(
+                ni, dep, ta, tl, cua, cul, gp, sc);
+        return new HistoricalData(ys, oc, ca, re, eb, pr, tx, extra);
     }
 
     private double[] fill(String[] src, int n) {
@@ -284,7 +321,8 @@ public class PageController {
     /** 参数范围校验（与前端校验口径一致）。 */
     private void check(ValuationContext c, double rf, double beta, double erp, double creditSpread,
                        String discountMode, double manualRate, double taxRate, double gFirst, double gTerminal,
-                       int nFirst, int nTransition) {
+                       int nFirst, int nTransition, String modelType, double gSecond, int nSecond,
+                       String fcfMode, String terminalMode, double exitPe) {
         require(rf, 0.0, 0.10, "无风险利率");
         require(beta, 0.0, 3.0, "Beta");
         require(erp, 0.0, 0.15, "市场风险溢价");
@@ -293,8 +331,20 @@ public class PageController {
         require(taxRate, 0.0, 0.50, "税率");
         require(gFirst, -0.50, 0.50, "高增长期增长率");
         require(gTerminal, 0.0, 0.05, "永续增长率");
-        if (nFirst < 1 || nTransition < 1 || nFirst + nTransition > 20) {
-            throw new IllegalArgumentException("预测年数设置非法（1-20 年）");
+        require(gSecond, -0.50, 0.50, "成长期增长率");
+        require(exitPe, 3.0, 100.0, "退出市盈率");
+        if (!List.of("twoStage", "zeroGrowth", "threeStage").contains(modelType)) {
+            throw new IllegalArgumentException("未知估值模型：" + modelType);
+        }
+        if (!List.of("simple", "fcff").contains(fcfMode)) {
+            throw new IllegalArgumentException("未知现金流口径：" + fcfMode);
+        }
+        if (!List.of("gordon", "pe").contains(terminalMode)) {
+            throw new IllegalArgumentException("未知终值方法：" + terminalMode);
+        }
+        if (nFirst < 1 || nTransition < 1 || nSecond < 1
+                || nFirst + nTransition + nSecond > 20) {
+            throw new IllegalArgumentException("预测年数设置非法（1-20 年，合计不超过 20）");
         }
         double ke = com.dcf.model.DcfModel.capmCostOfEquity(rf, beta, erp);
         double kd = com.dcf.model.WaccCalculator.costOfDebt(rf, creditSpread);

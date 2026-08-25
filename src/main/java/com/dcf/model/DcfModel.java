@@ -58,6 +58,24 @@ public final class DcfModel {
     }
 
     /**
+     * 三阶段增长率序列：前 n1 年恒定 g1 → n2 年线性过渡到 g2 → nTransition 年线性过渡到 g3（永续）。
+     *
+     * @return 长度为 n1 + n2 + nTransition 的增长率数组
+     */
+    public static double[] forecastGrowthPathThreeStage(double g1, double g2, double g3,
+                                                         int n1, int n2, int nTransition) {
+        double[] gs = new double[n1 + n2 + nTransition];
+        Arrays.fill(gs, 0, n1, g1);
+        for (int i = 1; i <= n2; i++) {
+            gs[n1 + i - 1] = g1 + (g2 - g1) * i / n2;
+        }
+        for (int i = 1; i <= nTransition; i++) {
+            gs[n1 + n2 + i - 1] = g2 + (g3 - g2) * i / nTransition;
+        }
+        return gs;
+    }
+
+    /**
      * 从基准 FCF 出发，按增长率序列逐年生成自由现金流预测。
      *
      * <p>允许负 FCF：成长型公司个别年份为负属正常，按绝对额复利计算。
@@ -106,6 +124,45 @@ public final class DcfModel {
         double terminalRatio = ev != 0 ? pvTerminal / ev : Double.NaN;
         return new ValuationResult(pvFcf, terminalValue, pvTerminal, ev, terminalRatio,
                 ValuationResult.NOT_SET, ValuationResult.NOT_SET, fcf, null);
+    }
+
+    /**
+     * PE 退出法核心估值：显式期折现 + 终值 = 退出市盈率 × 期末净利润。
+     *
+     * @param fcf                显式期各年自由现金流
+     * @param discountRate       折现率（WACC，小数）
+     * @param exitPe             退出市盈率（如 15）
+     * @param terminalNetIncome  显式期期末净利润预测值（= 期末营收 × 净利润率）
+     * @return 核心估值结果（equityValue / perShareValue 为 NaN）
+     */
+    public static ValuationResult dcfValuationPeExit(double[] fcf, double discountRate,
+                                                     double exitPe, double terminalNetIncome) {
+        int n = fcf.length;
+        double pvFcf = 0.0;
+        for (int i = 0; i < n; i++) {
+            pvFcf += fcf[i] * discountFactor(discountRate, i + 1);
+        }
+        double terminalValue = exitPe * terminalNetIncome;
+        double pvTerminal = terminalValue * discountFactor(discountRate, n);
+        double ev = pvFcf + pvTerminal;
+        double terminalRatio = ev != 0 ? pvTerminal / ev : Double.NaN;
+        return new ValuationResult(pvFcf, terminalValue, pvTerminal, ev, terminalRatio,
+                ValuationResult.NOT_SET, ValuationResult.NOT_SET, fcf, null);
+    }
+
+    /**
+     * PE 退出法完整估值：给定增长率路径与期末净利润，输出完整结果。
+     */
+    public static ValuationResult fullValuationPeExit(double baseFcf, double[] growthPath,
+                                                      double discountRate, double exitPe,
+                                                      double terminalNetIncome, double netDebt,
+                                                      double sharesOutstanding, double minorityInterest) {
+        double[] fcf = forecastFcf(baseFcf, growthPath);
+        ValuationResult core = dcfValuationPeExit(fcf, discountRate, exitPe, terminalNetIncome);
+        double equity = equityValue(core.enterpriseValue(), netDebt, minorityInterest);
+        double perShare = perShareValue(equity, sharesOutstanding);
+        return new ValuationResult(core.pvFcf(), core.terminalValue(), core.pvTerminal(),
+                core.enterpriseValue(), core.terminalRatio(), equity, perShare, fcf, growthPath);
     }
 
     /**

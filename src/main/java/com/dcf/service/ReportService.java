@@ -63,9 +63,18 @@ public class ReportService {
 
         // 二、模型口径
         sb.append("## 二、模型口径\n\n");
-        sb.append("- 自由现金流 FCF = 经营活动现金流 − 资本开支\n");
-        sb.append("- 两阶段 DCF：显式预测期 10 年（前 5 年固定增长率，后 5 年线性过渡到永续增长率）\n");
-        sb.append("- 终值：Gordon 模型 TV = FCFₙ×(1+g)/(r−g)\n");
+        sb.append("- 现金流口径：").append("fcff".equals(ctx.getFcfModeUsed())
+                ? "FCFF = EBIT×(1−t) + 折旧摊销 − 资本开支 − 营运资本增加"
+                : "简化 FCF = 经营活动现金流 − 资本开支").append("\n");
+        sb.append("- 估值模型：").append(switch (ctx.getModelType()) {
+            case "zeroGrowth" -> "零增长（FCF 不再增长，g=0，仅看存量价值）";
+            case "threeStage" -> "三阶段：高增长期 → 成长期 → 永续期（增长率分段线性过渡）";
+            default -> "两阶段：显式预测期（高增长 + 线性过渡到永续增长率）";
+        }).append("\n");
+        sb.append("- 终值：").append("pe".equals(ctx.getTerminalMode())
+                ? "PE 退出法 TV = 退出PE × 期末净利润预测（净利润率："
+                        + ctx.getNetMarginSource() + "）"
+                : "Gordon 模型 TV = FCFₙ×(1+g)/(r−g)").append("\n");
         sb.append("- 企业价值 EV = 显式期现值 + 终值现值\n");
         sb.append("- 股权价值 = EV − 净债务 − 少数股东权益；每股价值 = 股权价值 / 总股本\n");
         sb.append("- 折现率：").append(switch (ctx.getDiscountMode()) {
@@ -103,6 +112,24 @@ public class ReportService {
         sb.append(String.format("| 高增长期增长率 | %.2f%% × %d 年 |\n", ctx.getGFirst() * 100, ctx.getNFirst()));
         sb.append(String.format("| 过渡期 | %d 年线性过渡 |\n", ctx.getNTransition()));
         sb.append(String.format("| 永续增长率 g | %.2f%% |\n", ctx.getGTerminal() * 100));
+        if ("threeStage".equals(ctx.getModelType())) {
+            sb.append(String.format("| 成长期增长率 g2 | %.2f%% × %d 年 |\n", ctx.getGSecond() * 100, ctx.getNSecond()));
+        }
+        sb.append(String.format("| 估值模型 | %s |\n", switch (ctx.getModelType()) {
+            case "zeroGrowth" -> "零增长";
+            case "threeStage" -> "三阶段";
+            default -> "两阶段";
+        }));
+        sb.append(String.format("| 现金流口径 | %s |\n", "fcff".equals(ctx.getFcfModeUsed()) ? "FCFF（EBIT 起步）" : "简化 FCF"));
+        sb.append(String.format("| 终值方法 | %s |\n", "pe".equals(ctx.getTerminalMode()) ? "PE 退出法" : "Gordon 永续增长"));
+        if ("pe".equals(ctx.getTerminalMode())) {
+            sb.append(String.format("| 退出市盈率 | %.1f |\n", ctx.getExitPe()));
+            sb.append(String.format("| 期末净利润预测 | %,.0f |\n", ctx.getTerminalNetIncome()));
+            sb.append(String.format("| 净利润率来源 | %s |\n", ctx.getNetMarginSource()));
+        }
+        if (!ctx.getFcffWarning().isEmpty()) {
+            sb.append(String.format("| ⚠️ 口径提示 | %s |\n", ctx.getFcffWarning()));
+        }
         sb.append("\n");
 
         // 五、现金流预测
@@ -141,11 +168,32 @@ public class ReportService {
             sb.append("\n");
         }
 
+        // 7.5 F-Score
+        if (!ctx.getFScores().isEmpty()) {
+            sb.append("## 七·五、Piotroski F-Score（财务质量，满分 9 分）\n\n");
+            sb.append("| 年份 | 总分 | " + String.join(" | ", com.dcf.model.FScoreCalculator.ITEM_LABELS) + " |\n");
+            sb.append("|---|---|");
+            for (int i = 0; i < com.dcf.model.FScoreCalculator.ITEM_LABELS.length; i++) {
+                sb.append("---|");
+            }
+            sb.append("\n");
+            for (com.dcf.model.FScoreCalculator.FScoreResult fs : ctx.getFScores()) {
+                sb.append(String.format("| %d | %d/%d |", fs.year(), fs.score(), fs.itemsAvailable()));
+                for (Boolean b : fs.items()) {
+                    sb.append(b == null ? " — |" : (b ? " ✓ |" : " ✗ |"));
+                }
+                sb.append("\n");
+            }
+            sb.append("\n> 9 项二值指标：ROA、经营现金流、ROA 改善、应计质量、杠杆、流动比率、新股、毛利率、资产周转率。"
+                    + "— 表示该年数据不足。\n\n");
+        }
+
         // 八、敏感性
-        sb.append("## 七、敏感性分析（每股内在价值，折现率 × 永续增长率）\n\n");
-        sb.append("| 折现率 \\ 永续增长率 |");
+        sb.append("## 七、敏感性分析（每股内在价值，折现率 × ").append(sen.xLabel()).append("）\n\n");
+        sb.append("| 折现率 \\ ").append(sen.xLabel()).append(" |");
+        boolean peAxis = "退出PE".equals(sen.xLabel());
         for (double g : sen.growthRates()) {
-            sb.append(String.format(" %.2f%% |", g * 100));
+            sb.append(peAxis ? String.format(" %.1f |", g) : String.format(" %.2f%% |", g * 100));
         }
         sb.append("\n|---|");
         for (int col = 0; col < sen.cols(); col++) {
@@ -156,7 +204,7 @@ public class ReportService {
             sb.append(String.format("| %.1f%% |", sen.discountRates()[r] * 100));
             for (int col = 0; col < sen.cols(); col++) {
                 double v = sen.values()[r][col];
-                sb.append(Double.isNaN(v) ? " g≥r |" : String.format(" %.2f |", v));
+                sb.append(Double.isNaN(v) ? " N/A |" : String.format(" %.2f |", v));
             }
             sb.append("\n");
         }
@@ -165,7 +213,9 @@ public class ReportService {
         // 八、免责
         sb.append("## 八、风险提示与免责声明\n\n");
         sb.append("1. 模型结果对增长率与折现率假设高度敏感，请结合敏感性矩阵评估区间；\n");
-        sb.append("2. 历史现金流口径为简化口径（OCF − Capex），未调整营运资本变动与利息收支；\n");
+        sb.append("2. 现金流口径：").append("fcff".equals(ctx.getFcfModeUsed())
+                ? "FCFF（EBIT 起步，含折旧摊销与营运资本变动）"
+                : "简化口径（OCF − Capex），未调整营运资本变动与利息收支").append("；\n");
         sb.append("3. 本报告由程序自动生成，仅供学习研究，不构成任何投资建议。\n");
         return sb.toString();
     }

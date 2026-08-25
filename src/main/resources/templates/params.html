@@ -120,8 +120,65 @@
                                th:value="${#numbers.formatDecimal(ctx.manualDiscountRate * 100, 1, 2)}">
                     </div>
 
+                    <!-- 现金流口径 + 终值方法 -->
+                    <div class="col-12"><hr class="my-1"><b>①b 现金流口径与终值方法</b></div>
+                    <div class="col-12">
+                        <span class="form-label d-block">现金流口径（自由现金流定义）</span>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="fcfSimple" name="fcfMode" value="simple"
+                                   th:checked="${ctx.fcfMode == 'simple'}">
+                            <label class="form-check-label" for="fcfSimple">简化 FCF（推荐）</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="fcfFcff" name="fcfMode" value="fcff"
+                                   th:checked="${ctx.fcfMode == 'fcff'}">
+                            <label class="form-check-label" for="fcfFcff">FCFF（EBIT 起步）</label>
+                        </div>
+                        <div class="form-text">简化 FCF = 经营现金流 − 资本开支；FCFF = EBIT×(1−t) + 折旧摊销 − 资本开支 − 营运资本增加
+                            （需折旧摊销/流动资产/流动负债数据，A 股自动抓取已支持；数据不足时自动回退简化口径）</div>
+                    </div>
+                    <div class="col-12">
+                        <span class="form-label d-block">终值方法（Terminal Value）</span>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="tvGordon" name="terminalMode" value="gordon"
+                                   th:checked="${ctx.terminalMode == 'gordon'}" onchange="toggleTerminal()">
+                            <label class="form-check-label" for="tvGordon">Gordon 永续增长（推荐）</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="tvPe" name="terminalMode" value="pe"
+                                   th:checked="${ctx.terminalMode == 'pe'}" onchange="toggleTerminal()">
+                            <label class="form-check-label" for="tvPe">PE 退出法</label>
+                        </div>
+                        <div class="form-text">Gordon：TV = FCF₁₀×(1+g)/(r−g)；PE 退出：TV = 退出PE × 期末净利润预测（净利润率取自历史数据，敏感性矩阵变为 折现率×退出PE）</div>
+                    </div>
+                    <div class="col-md-3" id="exitPeBox" style="display:none">
+                        <label class="form-label">退出市盈率 PE</label>
+                        <input class="form-control" name="exitPe" type="number" step="0.5" min="3" max="100"
+                               th:value="${ctx.exitPe}">
+                        <div class="form-text">默认 15，可参考行业/历史估值区间</div>
+                    </div>
+
                     <!-- 增长率 -->
                     <div class="col-12"><hr class="my-1"><b>② 现金流预测假设</b></div>
+                    <div class="col-12">
+                        <span class="form-label d-block">估值模型</span>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="modelTwo" name="modelType" value="twoStage"
+                                   th:checked="${ctx.modelType == 'twoStage'}" onchange="toggleModel()">
+                            <label class="form-check-label" for="modelTwo">两阶段（默认）</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="modelZero" name="modelType" value="zeroGrowth"
+                                   th:checked="${ctx.modelType == 'zeroGrowth'}" onchange="toggleModel()">
+                            <label class="form-check-label" for="modelZero">零增长（保守）</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="modelThree" name="modelType" value="threeStage"
+                                   th:checked="${ctx.modelType == 'threeStage'}" onchange="toggleModel()">
+                            <label class="form-check-label" for="modelThree">三阶段</label>
+                        </div>
+                        <div class="form-text">零增长：FCF 不再增长（g=0，仅看存量）；三阶段：高增长 → 成长期 → 永续，下方多一组「成长期」参数</div>
+                    </div>
                     <div class="col-md-3">
                         <label class="form-label">高增长期增长率（%）</label>
                         <input class="form-control" name="gFirst" type="number" step="0.5" min="-50" max="50"
@@ -141,6 +198,17 @@
                         <input class="form-control" name="gTerminal" type="number" step="0.1" min="0" max="5"
                                th:value="${#numbers.formatDecimal(ctx.gTerminal * 100, 1, 2)}" required>
                         <div class="form-text">常取 2%-3%</div>
+                    </div>
+                    <div class="col-md-3" id="gSecondBox" style="display:none">
+                        <label class="form-label">成长期增长率（%）</label>
+                        <input class="form-control" name="gSecond" type="number" step="0.5" min="-50" max="50"
+                               th:value="${#numbers.formatDecimal(ctx.gSecond * 100, 1, 2)}">
+                        <div class="form-text">三阶段模式专用（高增长之后的中速期）</div>
+                    </div>
+                    <div class="col-md-3" id="nSecondBox" style="display:none">
+                        <label class="form-label">成长期年数</label>
+                        <input class="form-control" name="nSecond" type="number" step="1" min="1" max="10" th:value="${ctx.nSecond}">
+                        <div class="form-text">三阶段模式专用</div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">有效税率（%）</label>
@@ -234,7 +302,7 @@
     // 提交前把百分比字段换算为小数（后端按小数口径校验：如 Rf 1.70% → 0.017）
     document.getElementById('paramsForm').addEventListener('submit', function (e) {
         if (!validateParams()) { e.preventDefault(); return; }
-        var pct = ['rf', 'erp', 'creditSpread', 'manualRate', 'taxRate', 'gFirst', 'gTerminal'];
+        var pct = ['rf', 'erp', 'creditSpread', 'manualRate', 'taxRate', 'gFirst', 'gTerminal', 'gSecond'];
         for (var i = 0; i < pct.length; i++) {
             var el = document.querySelector('[name=' + pct[i] + ']');
             if (el && el.value !== '') { el.value = parseFloat(el.value) / 100; }

@@ -1,6 +1,7 @@
 package com.dcf.web;
 
 import com.dcf.data.model.CompanyData;
+import com.dcf.model.FScoreCalculator;
 import com.dcf.model.ScenarioResult;
 import com.dcf.model.SensitivityResult;
 import com.dcf.model.ValuationResult;
@@ -34,6 +35,12 @@ public class ValuationContext {
     private int nFirst = 5;               // 高增长年数
     private int nTransition = 5;          // 过渡年数
     private double gTerminal = 0.025;     // 永续增长率
+    private String modelType = "twoStage"; // 估值模型：twoStage=两阶段 / zeroGrowth=零增长 / threeStage=三阶段
+    private double gSecond = 0.05;         // 三阶段：成长期增长率（阶段 2）
+    private int nSecond = 5;               // 三阶段：成长期年数（阶段 2）
+    private String fcfMode = "simple";     // 现金流口径：simple=经营现金流-资本开支 / fcff=EBIT起步
+    private String terminalMode = "gordon";// 终值方法：gordon=永续增长 / pe=PE退出
+    private double exitPe = 15.0;          // PE 退出法：退出市盈率
 
     // ---- WACC 明细（计算结果） ----
     private double keValue = Double.NaN;         // 股权成本（CAPM）
@@ -51,6 +58,13 @@ public class ValuationContext {
     private List<HistoricalBacktest> backtestResults = List.of(); // 历史 DCF 回溯
     private String backtestError;             // 回溯不可用原因（可空）
     private SensitivityResult sensitivity;
+    private double baseFcfValue = Double.NaN; // 实际使用的基准自由现金流
+    private String fcfModeUsed = "simple";    // 实际生效的口径（FCFF 数据不足时回退 simple）
+    private String fcffWarning = "";          // FCFF 数据不足提示（可空）
+    private double terminalNetIncome = Double.NaN; // PE 退出法：期末净利润预测
+    private double netMarginUsed = Double.NaN;     // PE 退出法：使用的净利润率
+    private String netMarginSource = "";           // 净利润率来源说明
+    private List<FScoreCalculator.FScoreResult> fScores = List.of(); // Piotroski F-Score
     private String errorMessage;
 
     // ---- 便捷访问 ----
@@ -140,6 +154,45 @@ public class ValuationContext {
 
     public SensitivityResult getSensitivity() { return sensitivity; }
     public void setSensitivity(SensitivityResult sensitivity) { this.sensitivity = sensitivity; }
+
+    public String getModelType() { return modelType; }
+    public void setModelType(String modelType) { this.modelType = modelType; }
+
+    public double getGSecond() { return gSecond; }
+    public void setGSecond(double gSecond) { this.gSecond = gSecond; }
+
+    public int getNSecond() { return nSecond; }
+    public void setNSecond(int nSecond) { this.nSecond = nSecond; }
+
+    public String getFcfMode() { return fcfMode; }
+    public void setFcfMode(String fcfMode) { this.fcfMode = fcfMode; }
+
+    public String getTerminalMode() { return terminalMode; }
+    public void setTerminalMode(String terminalMode) { this.terminalMode = terminalMode; }
+
+    public double getExitPe() { return exitPe; }
+    public void setExitPe(double exitPe) { this.exitPe = exitPe; }
+
+    public double getBaseFcfValue() { return baseFcfValue; }
+    public void setBaseFcfValue(double baseFcfValue) { this.baseFcfValue = baseFcfValue; }
+
+    public String getFcfModeUsed() { return fcfModeUsed; }
+    public void setFcfModeUsed(String fcfModeUsed) { this.fcfModeUsed = fcfModeUsed; }
+
+    public String getFcffWarning() { return fcffWarning; }
+    public void setFcffWarning(String fcffWarning) { this.fcffWarning = fcffWarning; }
+
+    public double getTerminalNetIncome() { return terminalNetIncome; }
+    public void setTerminalNetIncome(double terminalNetIncome) { this.terminalNetIncome = terminalNetIncome; }
+
+    public double getNetMarginUsed() { return netMarginUsed; }
+    public void setNetMarginUsed(double netMarginUsed) { this.netMarginUsed = netMarginUsed; }
+
+    public String getNetMarginSource() { return netMarginSource; }
+    public void setNetMarginSource(String netMarginSource) { this.netMarginSource = netMarginSource; }
+
+    public List<FScoreCalculator.FScoreResult> getFScores() { return fScores; }
+    public void setFScores(List<FScoreCalculator.FScoreResult> fScores) { this.fScores = fScores; }
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
