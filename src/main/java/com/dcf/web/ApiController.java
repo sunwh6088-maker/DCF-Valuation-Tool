@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.Map;
 
 /**
@@ -46,5 +47,51 @@ public class ApiController {
         response.getOutputStream().write(new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF});
         response.getOutputStream().write(content);
         response.getOutputStream().flush();
+    }
+
+    /**
+     * 下载 Excel 估值报告（6 sheet）。
+     */
+    @GetMapping("/download/excel")
+    public void excel(jakarta.servlet.http.HttpServletRequest request,
+                      jakarta.servlet.http.HttpSession session,
+                      HttpServletResponse response) throws Exception {
+        ValuationContext ctx = (ValuationContext) session.getAttribute("valuationContext");
+        if (ctx == null || ctx.getResult() == null) {
+            response.sendError(400, "请先完成估值");
+            return;
+        }
+        byte[] bytes = com.dcf.excel.ExcelExporter.export(ctx);
+        String name = "DCF估值_" + safe(ctx.getCompany().snapshot().name()) + "_" + LocalDate.now() + ".xlsx";
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                + java.net.URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20"));
+        response.getOutputStream().write(bytes);
+        response.getOutputStream().flush();
+    }
+
+    /**
+     * 下载 Markdown 估值报告。
+     */
+    @GetMapping("/download/report")
+    public void report(jakarta.servlet.http.HttpSession session,
+                       HttpServletResponse response) throws Exception {
+        ValuationContext ctx = (ValuationContext) session.getAttribute("valuationContext");
+        if (ctx == null || ctx.getResult() == null) {
+            response.sendError(400, "请先完成估值");
+            return;
+        }
+        byte[] bytes = com.dcf.service.ReportService.generate(ctx).getBytes(StandardCharsets.UTF_8);
+        String name = "DCF估值报告_" + safe(ctx.getCompany().snapshot().name()) + "_" + LocalDate.now() + ".md";
+        response.setContentType("text/markdown; charset=utf-8");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                + java.net.URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20"));
+        response.getOutputStream().write(bytes);
+        response.getOutputStream().flush();
+    }
+
+    /** 文件名安全化（去特殊字符）。 */
+    private String safe(String s) {
+        return s.replaceAll("[\\\\/:*?\"<>|\\s]+", "_");
     }
 }

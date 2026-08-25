@@ -101,9 +101,13 @@
         </div>
     </div>
 
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between align-items-center">
         <a href="/params" class="btn btn-outline-secondary">← 修改参数</a>
-        <a href="/reset" class="btn btn-outline-danger">重新估值</a>
+        <div class="d-flex gap-2">
+            <a href="/download/report" class="btn btn-outline-primary">📄 下载 Markdown 报告</a>
+            <a href="/download/excel" class="btn btn-primary">📊 下载 Excel 报告</a>
+            <a href="/reset" class="btn btn-outline-danger">重新估值</a>
+        </div>
     </div>
     <p class="text-muted small mt-3">本结果为模型估算，仅供参考，不构成投资建议。</p>
 </div>
