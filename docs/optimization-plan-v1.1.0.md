@@ -3,6 +3,21 @@
 > 调研对象：halessi/DCF（496★）、bben1 自动估值（52★）、xuelixunhua/stock_DCF（55★）、ianzheng 十年DCF skill、potatossium/dcf_model（52★）
 > 原则：所有优化保持"参数透明、可手动覆盖"；每次修改/修 bug 按 docs/bug-log.md 规范追加 4 要素记录（原因/位置/测试/影响模块）。
 
+## 实施状态（2026-08-25 全部完成 ✅）
+
+| 项 | 内容 | 状态 | 提交 |
+|---|---|---|---|
+| P0-1 | WACC 完整化（kd×D/(D+E)×(1-t)+ke×E/(D+E)） | ✅ | 1359778 |
+| P0-2 | 三情景并行（保守/中性/乐观） | ✅ | 3ec640e |
+| P1-6 | 判断分级 + 回本年限 + 隐含年化回报 | ✅ | 31294a7 |
+| P1-4 | 无风险利率自动获取（FRED DGS10；CN 回退手动） | ✅ | 1bc6aba |
+| P1-5 | 金融股提示（名称关键词检测） | ✅ | c206d14 |
+| P1-3 | 历史 DCF 回溯（模型估值 vs 年末股价） | ✅ | 8499a21 |
+| P2-7 | GitHub Actions CI | ✅ | 7016926（CI 首跑绿） |
+| P2-8 | Dockerfile + 公网部署指南 | ✅ | 7016926 |
+
+> 详细变更记录见 docs/changelog.md（4 要素格式）。
+
 ## 一、改动清单（按优先级）
 
 ### P0-1 WACC 完整化（债务成本 + 资本结构加权）
@@ -53,7 +68,8 @@
 - **原因**：安全边际一个数字不够直观；ianzheng 的"明显低估/合理/高估 + 回本年限 + 隐含回报"更实用。
 - **修改位置**：
   - src/main/java/com/dcf/model/ValuationResult.java 增补：verdict 分级（≤0.7 明显低估 / ≤1.1 合理 / ≥1.3 明显高估）、回本年限（市值/年均FCF）、隐含年化回报
-  - esult.html 卡片区展示；Excel 结果 Sheet 增列
+  - 
+esult.html 卡片区展示；Excel 结果 Sheet 增列
 - **测试方式**：VerdictTest 边界值 0.7 / 1.1 / 1.3。
 - **可能影响的模块**：ValuationResult、result 页面、Excel、报告。
 
