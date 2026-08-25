@@ -234,3 +234,14 @@
   - 冒烟 2（完整链路）：`cmd /c run.bat 8502` → 经 mvnw 自动编译并启动，`http://127.0.0.1:8502/` 返回 200，Tomcat 日志确认端口 8502，测试进程已清理
   - `mvnw.cmd test` 全量测试（见提交时输出）
 - **可能影响的模块**：启动流程（run.bat/run.sh/新增 wrapper）、README；不影响 Java 业务代码；`run.sh` 新增的 awk 解析仅在本机无 sh 环境下无法实测，已按 POSIX 语法人工复查
+## 变更 #12：版本 bump v1.1.1 → v1.1.2（2026-08-25 晚）
+
+- **原因**：v1.1.1 发布后补充了 Maven Wrapper、脚本 Java 检查、行尾/可执行位修正（变更 #10/#11），
+  为便于用户区分发行版，bump 版本号并重新打包发布。
+- **修改位置**：
+  - `pom.xml`：`<version>` 1.1.1 → 1.1.2
+  - `run.bat` / `run.sh`：`JAR` 变量改为 `dcf-valuation-tool-1.1.2.jar`
+  - `README.md`：版本号与 jar 名同步为 1.1.2
+- **测试方式**：`mvnw test` 全量 54 个用例通过；`mvnw -DskipTests package` 产出 1.1.2 jar；
+  冒烟：`cmd /c run.bat jar 8502` 启动后 `http://127.0.0.1:8502/` 返回 200，测试进程已清理
+- **可能影响的模块**：打包产物文件名（旧 1.1.1 jar 不再被脚本引用）、Release 资产；无业务逻辑变化
