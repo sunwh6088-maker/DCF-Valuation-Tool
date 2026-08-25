@@ -1,6 +1,6 @@
 # DCF-Valuation-Tool（两阶段 DCF 估值工具）
 
-基于 **两阶段 DCF（Discounted Cash Flow）模型** 的上市公司估值工具：把公司未来 10 年自由现金流折现为现值，再用 Gordon 模型计算终值，最终得到「每股内在价值」并与当前股价对比计算安全边际。
+基于 **DCF（Discounted Cash Flow）模型** 的上市公司估值工具（默认两阶段模型 + Gordon 终值，支持零增长/三阶段模型与 PE 退出法）：把公司未来自由现金流折现为现值并计算终值，最终得到「每股内在价值」并与当前股价对比计算安全边际。
 
 - A 股：自动抓取财报（新浪财经）+ 股本/股价（东方财富），也可导入理杏仁 CSV 或手动输入
 - 美股：按清单手动输入（美股权重数据源多为付费，自动抓取不可靠）
@@ -113,8 +113,9 @@ DCF-Valuation-Tool/
 │   └── static/      Bootstrap/ECharts 本地化 + custom css/js
 ├── src/test/java/   JUnit 5 单元测试（模型 / 数据 / 导入 / Beta）
 ├── docs/
+│   ├── changelog.md          变更与修复记录（主记录，每次修改含 原因/位置/测试/影响模块）
 │   ├── architecture-java.md   Java 版架构设计
-│   └── bug-log.md             Bug 修复记录（原因/位置/测试/影响模块）
+│   └── bug-log.md             早期 Bug 记录（v1.0 开发期，后续并入 changelog）
 ├── outputs/         导出产物（Excel + Markdown 报告，已 gitignore）
 ├── CONTRIBUTING.md  贡献指南
 └── LICENSE          MIT 开源协议

@@ -68,7 +68,7 @@
                                    th:value="${#numbers.formatDecimal(ctx.rf * 100, 1, 2)}" oninput="updateWacc()">
                             <button class="btn btn-outline-primary" type="button" id="rfBtn" onclick="fetchRf()">自动获取</button>
                         </div>
-                        <div class="form-text" id="rfHint">10 年期国债：CN≈1.7% / US≈4.3%（可点右侧按钮自动获取，也可手动输入）</div>
+                        <div class="form-text" id="rfHint">10 年期国债收益率：可点右侧按钮自动获取最新值（CN 中债登 / US FRED），失败时手动输入（参考区间 CN≈1.5%-2%、US≈3.5%-4.5%）</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Beta</label>

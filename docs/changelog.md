@@ -335,3 +335,19 @@
   - `src/main/resources/templates/index.html`：版本号改为 Thymeleaf 动态输出（`th:text`），无 JS/降级时仍显示兜底文案
 - **测试方式**：`mvnw test` 全量通过；`mvnw package` 重新打包后启动 8504 冒烟，首页显示 "Java 版 v1.1.3"（实测确认 filtering 生效）
 - **可能影响的模块**：仅首页导航栏显示文案；不影响估值流程/其他页面/导出
+
+---
+
+## 变更 #20：清理历史遗留的写死文案与文档脱节（2026-08-25）
+
+- **原因**：变更 #19 修复首页版本号写死后，全仓排查同类问题，发现 4 处"写死/文档与实际脱节"：
+  1. README 目录结构只列 `docs/bug-log.md`，漏掉当前主记录 `docs/changelog.md`；
+  2. 参数页无风险利率提示写死具体数值（CN≈1.7% / US≈4.3%），利率是动态数据，数字会过时；
+  3. 首页副标题写死"预测 10 年"，三阶段模型支持自定义预测年数（合计 ≤20）；
+  4. README 首段写死"两阶段 + Gordon"，现已支持零增长/三阶段模型与 PE 退出法。
+- **修改位置**：
+  - `README.md`：首段模型描述更新；目录结构补充 changelog.md（主记录）并注明 bug-log.md 为早期记录
+  - `src/main/resources/templates/params.html`：rfHint 改为通用提示（自动获取 + 参考区间，不写死具体值）
+  - `src/main/resources/templates/index.html`：副标题改为"预测期折现（默认 10 年，可分段调整）"
+- **测试方式**：模板修改后重新 `mvnw package`；启动 8504 冒烟，首页/参数页文案正常显示，`rg` 确认无残留写死值
+- **可能影响的模块**：仅页面文案与 README 文档；不影响估值逻辑/导出/接口
