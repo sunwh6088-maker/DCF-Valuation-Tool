@@ -6,6 +6,7 @@ import com.dcf.data.model.CompanyData;
 import com.dcf.data.model.HistoricalData;
 import com.dcf.data.model.SnapshotData;
 import com.dcf.data.sina.SinaFinanceClient;
+import com.dcf.data.tencent.TencentKlineClient;
 import com.dcf.data.sina.SinaFinanceParser;
 import com.dcf.service.BetaCalculator;
 
@@ -93,9 +94,36 @@ public class DataService {
         String normalized = normalizeCode(code);
         String start = EastMoneyClient.defaultStartDate();
         String end = EastMoneyClient.today();
-        List<Double> stock = EastMoneyClient.fetchWeeklyCloses(EastMoneyClient.secid(normalized), start, end);
-        List<Double> index = EastMoneyClient.fetchWeeklyCloses(EastMoneyClient.CSI300_SECID, start, end);
-        return BetaCalculator.calculate(stock, index);
+        // 主源：东财周线。东财免费接口偶发整体不可用（网络失败/解析失败/数据不足），
+        // 此时自动切换腾讯备用源（按共同日期对齐后再回归），都失败才抛异常。
+        try {
+            List<Double> stock = EastMoneyClient.fetchWeeklyCloses(EastMoneyClient.secid(normalized), start, end);
+            List<Double> index = EastMoneyClient.fetchWeeklyCloses(EastMoneyClient.CSI300_SECID, start, end);
+            double b = BetaCalculator.calculate(stock, index);
+            if (!Double.isNaN(b)) {
+                return b;
+            }
+        } catch (Exception ignored) {
+            // 主源失败，走备用源
+        }
+        return fetchBetaFromTencent(normalized, start);
+    }
+
+    /** 备用源：腾讯前复权周线（个股 vs 沪深300，按共同日期对齐）。 */
+    private double fetchBetaFromTencent(String code, String start) {
+        Map<String, Double> stock = TencentKlineClient.fetchWeeklyCloses(
+                (code.startsWith("6") ? "sh" : "sz") + code, start);
+        Map<String, Double> index = TencentKlineClient.fetchWeeklyCloses("sh000300", start);
+        List<Double> s = new java.util.ArrayList<>();
+        List<Double> i = new java.util.ArrayList<>();
+        for (Map.Entry<String, Double> e : stock.entrySet()) {
+            Double iv = index.get(e.getKey());
+            if (iv != null) {
+                s.add(e.getValue());
+                i.add(iv);
+            }
+        }
+        return BetaCalculator.calculate(s, i);
     }
 
     /**
