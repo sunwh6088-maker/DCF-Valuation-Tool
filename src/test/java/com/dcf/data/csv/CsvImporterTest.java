@@ -90,6 +90,23 @@ class CsvImporterTest {
     }
 
     @Test
+    void testDescendingRowsAreSortedAscendingWithAlignment() {
+        // 理杏仁导出风格：最新年份在前（倒序），排序后各字段必须与年份保持对齐
+        String csv = """
+                报告期,经营活动产生的现金流量净额,购建固定资产、无形资产和其他长期资产支付的现金,营业总收入
+                2024-12-31,100,40,500
+                2022-12-31,80,30,400
+                2023-12-31,90,35,450
+                """;
+        HistoricalData h = CsvImporter.parseText(csv);
+        assertEquals(3, h.size());
+        assertArrayEquals(new int[]{2022, 2023, 2024}, h.years());
+        assertArrayEquals(new double[]{80, 90, 100}, h.ocf(), 1e-9);
+        assertArrayEquals(new double[]{30, 35, 40}, h.capex(), 1e-9);
+        assertArrayEquals(new double[]{400, 450, 500}, h.revenue(), 1e-9);
+        assertArrayEquals(new double[]{50, 55, 60}, h.fcfSeries(), 1e-9);
+    }
+    @Test
     void testTemplateGenerationRoundTrip() {
         String template = CsvImporter.generateTemplate();
         HistoricalData h = CsvImporter.parseText(template);

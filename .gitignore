@@ -23,3 +23,5 @@ Thumbs.db
 target/
 *.class
 .mvn/wrapper/maven-wrapper.jar
+# local smoke/temp
+work/

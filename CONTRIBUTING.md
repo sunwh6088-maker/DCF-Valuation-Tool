@@ -6,7 +6,7 @@
 
 提交 Issue 前请先搜索是否已有人报告过类似问题。请尽量包含：
 
-- 环境信息：操作系统、Python 版本、Streamlit 版本
+- 环境信息：操作系统、JDK 版本、Maven 版本
 - 复现步骤：如何触发该问题
 - 实际结果与预期结果
 - 相关的报错信息（日志、截图）
@@ -18,7 +18,7 @@
 1. Fork 本仓库到你的账号
 2. Clone 到本地并创建功能分支：`git checkout -b feat/your-feature`
 3. 修改代码，并确保：
-   - 通过现有测试：`python -m pytest`
+   - 通过现有测试：`mvn test`（Java 版）；Python 版见 `python-prototype` 分支
    - 新增功能有对应的单元测试
    - 遵循现有代码风格
 4. 提交并推送到你的 Fork：`git push origin feat/your-feature`
@@ -43,7 +43,7 @@
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-streamlit run app.py
+Spring Boot run app.py
 ```
 
 ## 代码规范

@@ -54,7 +54,7 @@
         <div class="col-lg-7">
             <div class="card p-4">
                 <h6>估值假设参数 <span class="step-badge">全部可手动覆盖</span></h6>
-                <form method="post" action="/params" onsubmit="return validateParams()" class="row g-3">
+                <form method="post" action="/params" id="paramsForm" class="row g-3">
                     <!-- 折现率 -->
                     <div class="col-12"><hr class="my-1"><b>① 折现率（WACC）</b></div>
                     <div class="col-md-4">
@@ -159,6 +159,16 @@
     }
     toggleCapm();
     updateCapm('rf','beta','erp','capmOut');
+
+    // 提交前把百分比字段换算为小数（后端按小数口径校验：如 Rf 1.70% → 0.017）
+    document.getElementById('paramsForm').addEventListener('submit', function (e) {
+        if (!validateParams()) { e.preventDefault(); return; }
+        var pct = ['rf', 'erp', 'manualRate', 'taxRate', 'gFirst', 'gTerminal'];
+        for (var i = 0; i < pct.length; i++) {
+            var el = document.querySelector('[name=' + pct[i] + ']');
+            if (el && el.value !== '') { el.value = parseFloat(el.value) / 100; }
+        }
+    });
 </script>
 </body>
 </html>

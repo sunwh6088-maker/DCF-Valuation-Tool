@@ -31,14 +31,21 @@
 - 3 年周对数收益率回归：beta = cov(个股, 沪深300) / var(沪深300)，不做无风险调整
 - 数据不足 30 个周样本时返回 null，UI 提示手动输入
 
-## 目录结构
+## 目录结构（与实际代码一致）
 src/main/java/com/dcf/
-- model/     纯计算（DCF/CAPM/敏感性/结果对象），无 IO 依赖
-- data/      sina + eastmoney HTTP 客户端、CSV 导入、JSON 缓存、数据模型
-- service/   估值编排、Beta 计算、Markdown 报告
-- excel/     POI 多 sheet 导出
-- web/       Thymeleaf 页面 + JSON API
-src/main/resources/templates/  index/input-a/input-us/params/result
+- model/        纯计算（DcfModel/CAPM/敏感性/结果对象），无 IO 依赖
+- data/         HTTP 数据层（DataService、HttpUtil）
+  - sina/       新浪财报抓取 + 解析（getFinanceReport2022）
+  - eastmoney/  东财快照（股本/股价/市值）+ K 线（Beta 用）
+  - csv/        理杏仁/模板 CSV 导入（年份排序、编码探测）
+  - cache/      JSON 24 小时缓存
+  - model/      数据模型（CompanyData/HistoricalData/SnapshotData）
+- service/      估值编排（ValuationService）、Beta 计算、Markdown 报告
+- excel/        POI 多 sheet 导出（ExcelExporter）
+- web/          Thymeleaf 页面 + JSON API + HttpSession 上下文
+src/main/resources/
+- templates/    index / input-a / input-us / params / result
+- static/       bootstrap/echarts 本地化 + custom css/js
 src/test/java/                 JUnit 5 单元测试
 
 ## 页面流程
@@ -54,7 +61,7 @@ src/test/java/                 JUnit 5 单元测试
 - J3 feat: data layer (sina/eastmoney/csv/cache) + tests
 - J4 feat: web UI pages + validation
 - J5 feat: excel export + markdown report
-- J6 test: e2e with real data (600519) + README
+- J6 test: e2e with real data (600519) + README（已完成，v1.0.0 tag）
 
 ## 风险与对策
 - 新浪/东财接口字段变更 → 解析层集中隔离，失败给出中文提示并引导手动输入
