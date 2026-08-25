@@ -7,6 +7,7 @@ import com.dcf.data.model.HistoricalData;
 import com.dcf.data.model.SnapshotData;
 import com.dcf.service.ValuationService;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +39,9 @@ public class PageController {
 
     { valuationService.setDataService(dataService); }
 
+    @Value("${dcf.version}")
+    private String version;
+
     private ValuationContext ctx(HttpSession session) {
         ValuationContext c = (ValuationContext) session.getAttribute(CTX);
         if (c == null) {
@@ -50,7 +54,8 @@ public class PageController {
     // ---------- 首页 ----------
 
     @GetMapping("/")
-    public String index() {
+    public String index(Model model) {
+        model.addAttribute("version", version);
         return "index";
     }
 
@@ -376,3 +381,5 @@ public class PageController {
         return msg == null || msg.isBlank() ? e.getClass().getSimpleName() : msg;
     }
 }
+
+

@@ -323,3 +323,15 @@
 - **测试方式**：`mvnw test` 全量 65 个用例通过；`mvnw package` 产出 1.1.3 jar；
   冒烟 `run.bat jar 8502`：自动抓取茅台 → 提交参数 → 结果页/Excel/报告正常，截图与茅台示例重新生成
 - **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+---
+
+## 变更 #19：首页版本号动态化（2026-08-25）
+
+- **原因**：首页导航栏版本号自 v1.0 起写死在模板（"Java 版 v1.0"），版本 bump 到 1.1.x 后页面仍显示 v1.0，用户误以为在用旧版本；且存在"本地 jar 与 Release 不一致"同类隐患（页面与代码版本脱节）。
+- **修改位置**：
+  - `src/main/resources/application.properties`（新增）：`dcf.version=@project.version@`，Maven resource filtering 自动注入 pom 版本号，bump 版本时无需再改页面
+  - `src/main/java/com/dcf/web/PageController.java`：注入 `@Value("${dcf.version}")`，首页 index() 向模板传 version
+  - `src/main/resources/templates/index.html`：版本号改为 Thymeleaf 动态输出（`th:text`），无 JS/降级时仍显示兜底文案
+- **测试方式**：`mvnw test` 全量通过；`mvnw package` 重新打包后启动 8504 冒烟，首页显示 "Java 版 v1.1.3"（实测确认 filtering 生效）
+- **可能影响的模块**：仅首页导航栏显示文案；不影响估值流程/其他页面/导出
