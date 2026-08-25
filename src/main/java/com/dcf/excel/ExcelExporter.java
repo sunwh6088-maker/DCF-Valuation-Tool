@@ -116,6 +116,10 @@ public class ExcelExporter {
                             / ctx.getCompany().snapshot().price());
             autoWidth(s5, 2);
 
+            row(s5, 5, "判断分级", ctx.getVerdict());
+            row(s5, 6, "回本年限（年）", ctx.getPaybackYears());
+            row(s5, 7, "隐含年化回报", pct(ctx.getImpliedReturn()));
+
             // ---------- 6. 三情景 ----------
             Sheet s6a = wb.createSheet("三情景");
             String[] scHeaders = {"情景", "折现率", "每股内在价值", "股权价值"};

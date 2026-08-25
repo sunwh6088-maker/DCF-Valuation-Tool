@@ -69,3 +69,19 @@
   - 新增 `src/test/java/com/dcf/model/ScenarioTest.java`（3 个用例）
 - **测试方式**：`mvn test` 全量 40 个用例通过；ScenarioTest 验证偏移约定、单调性（保守≤中性≤乐观）、极端参数（r≤g）不崩溃。
 - **可能影响的模块**：估值编排链路（所有市场/数据来源）、结果页、Excel、Markdown 报告；敏感性矩阵不受影响（仍以主折现率为中心）。
+
+---
+
+## 变更 #3：判断分级 + 回本年限 + 隐含年化回报（P1-6，2026-08-25）
+
+- **原因**：安全边际一个数字不够直观；调研的 ianzheng 项目「分级 + 回本年限 + 隐含回报」对使用者更友好、更有行动参考价值。
+- **修改位置**：
+  - 新增 `src/main/java/com/dcf/model/Indicators.java`：Verdict 分级（比率阈值 1.3/1.1/0.9/0.7）、回本年限=市值/年均FCF、隐含年化回报=(内在价值/股价)^(1/年限)-1
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 verdict / paybackYears / impliedReturn 字段
+  - `src/main/java/com/dcf/service/ValuationService.java`：compute() 计算三个指标写入上下文
+  - `src/main/resources/templates/result.html`：安全边际卡片 badge 改为分级标签，新增回本年限/隐含年化回报
+  - `src/main/java/com/dcf/excel/ExcelExporter.java`：「估值」Sheet 新增 3 行
+  - `src/main/java/com/dcf/service/ReportService.java`：结论表新增 3 行
+  - 新增 `src/test/java/com/dcf/model/IndicatorsTest.java`（3 个用例）
+- **测试方式**：`mvn test` 全量 43 个用例通过；边界测试覆盖 1.3/1.1/0.9/0.7 阈值与 NaN 兜底。
+- **可能影响的模块**：结果页卡片区、Excel 估值 Sheet、Markdown 报告；不影响核心估值数字（纯展示层指标）。

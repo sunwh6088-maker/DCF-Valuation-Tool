@@ -44,6 +44,9 @@ public class ReportService {
         sb.append(String.format("| 当前股价 | %.2f |\n", price));
         sb.append(String.format("| 安全边际 | **%.1f%%** |\n", margin * 100));
         sb.append(String.format("| 结论 | %s |\n", margin >= 0 ? "**低估**，值得关注" : "**高估**，谨慎对待"));
+        sb.append(String.format("| 判断分级 | %s |\n", ctx.getVerdict()));
+        sb.append(String.format("| 回本年限 | %.1f 年 |\n", ctx.getPaybackYears()));
+        sb.append(String.format("| 隐含年化回报 | %.1f%% |\n", ctx.getImpliedReturn() * 100));
         sb.append("\n> 本结论基于下方全部假设，请结合敏感性分析判断稳健性。\n\n");
         sb.append("### 三情景对比\n\n");
         sb.append("| 情景 | 折现率 | 每股内在价值 | 股权价值 |\n|---|---|---|---|\n");

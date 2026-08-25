@@ -38,8 +38,12 @@
                 <div class="metric-label">安全边际</div>
                 <div class="big-number" th:classappend="${margin >= 0 ? 'text-success' : 'text-danger'}"
                      th:text="${#numbers.formatDecimal(margin * 100, 1, 1)} + '%'"></div>
-                <span class="badge text-bg-success fs-6" th:if="${margin >= 0}">低估 · 值得关注</span>
-                <span class="badge text-bg-danger fs-6" th:if="${margin < 0}">高估 · 谨慎</span>
+                <span class="badge text-bg-success fs-6" th:text="${ctx.verdict}" th:if="${margin >= 0}"></span>
+                <span class="badge text-bg-danger fs-6" th:text="${ctx.verdict}" th:if="${margin < 0}"></span>
+                <div class="text-muted small mt-2" th:if="${ctx.paybackYears == ctx.paybackYears}">
+                    回本年限 <b th:text="${#numbers.formatDecimal(ctx.paybackYears, 1, 1)} + ' 年'"></b>
+                    ｜ 隐含年化回报 <b th:text="${#numbers.formatDecimal(ctx.impliedReturn * 100, 1, 1)} + '%'"></b>
+                </div>
             </div>
         </div>
     </div>

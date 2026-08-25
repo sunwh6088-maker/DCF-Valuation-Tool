@@ -2,6 +2,7 @@ package com.dcf.service;
 
 import com.dcf.data.model.HistoricalData;
 import com.dcf.model.DcfModel;
+import com.dcf.model.Indicators;
 import com.dcf.model.Scenario;
 import com.dcf.model.ScenarioResult;
 import com.dcf.model.ScenarioValuer;
@@ -81,6 +82,13 @@ public class ValuationService {
                 discountRate, netDebt, shares, minority,
                 ctx.getNFirst(), ctx.getNTransition());
         ctx.setResult(result);
+
+        // 3.5 辅助指标：判断分级 / 回本年限 / 隐含年化回报
+        double price = ctx.getCompany().snapshot().price();
+        ctx.setVerdict(Indicators.verdict(result.perShareValue(), price).label());
+        ctx.setPaybackYears(Indicators.paybackYears(price * shares, baseFcf));
+        ctx.setImpliedReturn(Indicators.impliedAnnualReturn(
+                result.perShareValue(), price, ctx.getNFirst() + ctx.getNTransition()));
 
         // 4. 敏感性矩阵（CAPM 值 ±3%）
         double rLow = Math.max(0.005, Math.round((discountRate - 0.03) * 200) / 200.0);
