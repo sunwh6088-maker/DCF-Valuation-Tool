@@ -62,6 +62,25 @@ public class ApiController {
     }
 
     /**
+     * 自动获取中国信用利差参考（中短期票据 AAA 3Y − 国债 3Y，中债登）。
+     * 仅 CN 市场有意义；失败返回 spread=null + error，由页面提示手动输入。
+     */
+    @GetMapping("/api/creditSpread")
+    public Map<String, Object> creditSpread() {
+        // 与 beta/rf 相同：不能用 Map.of（不允许 null 值，Bug #7 教训）
+        Map<String, Object> resp = new java.util.HashMap<>();
+        try {
+            double v = rateFetcher.fetchCnCreditSpread();
+            resp.put("spread", Double.isNaN(v) ? null : v);
+            resp.put("source", "中债登（中短期票据 AAA 3Y − 国债 3Y，日频）");
+        } catch (Exception e) {
+            resp.put("spread", null);
+            resp.put("error", e.getMessage() == null ? "信用利差获取失败，请手动输入" : e.getMessage());
+        }
+        return resp;
+    }
+
+    /**
      * 下载标准 CSV 模板（UTF-8 带 BOM，Excel 打开不乱码）。
      */
     @GetMapping("/api/template")

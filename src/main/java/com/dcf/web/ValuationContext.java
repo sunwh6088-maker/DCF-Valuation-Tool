@@ -42,6 +42,10 @@ public class ValuationContext {
     private String terminalMode = "gordon";// 终值方法：gordon=永续增长 / pe=PE退出
     private double exitPe = 15.0;          // PE 退出法：退出市盈率
 
+    // ---- 参考值（历史数据自动计算，仅供预填参考，不覆盖用户输入） ----
+    private Double refTaxRate;   // 有效税率参考（近 3 年均值；null=不可用）
+    private Double refGrowth;    // 历史营收 CAGR 参考（null=不可用）
+
     // ---- WACC 明细（计算结果） ----
     private double keValue = Double.NaN;         // 股权成本（CAPM）
     private double kdValue = Double.NaN;         // 债务成本（Rf + 信用利差）
@@ -98,6 +102,12 @@ public class ValuationContext {
     public void setManualDiscountRate(double manualDiscountRate) { this.manualDiscountRate = manualDiscountRate; }
 
     public double getCreditSpread() { return creditSpread; }
+
+    public Double getRefTaxRate() { return refTaxRate; }
+    public void setRefTaxRate(Double refTaxRate) { this.refTaxRate = refTaxRate; }
+
+    public Double getRefGrowth() { return refGrowth; }
+    public void setRefGrowth(Double refGrowth) { this.refGrowth = refGrowth; }
     public void setCreditSpread(double creditSpread) { this.creditSpread = creditSpread; }
 
     public double getKeValue() { return keValue; }

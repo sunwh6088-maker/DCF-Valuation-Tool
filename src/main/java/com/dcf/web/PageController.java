@@ -5,6 +5,7 @@ import com.dcf.data.csv.CsvImporter;
 import com.dcf.data.model.CompanyData;
 import com.dcf.data.model.HistoricalData;
 import com.dcf.data.model.SnapshotData;
+import com.dcf.service.ReferenceCalculator;
 import com.dcf.service.ValuationService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
@@ -167,6 +168,9 @@ public class PageController {
         if (!c.hasCompany()) {
             return "redirect:/";
         }
+        // 参考值：每次进入参数页按当前历史数据重算（仅供页面「参考历史」按钮/提示使用，不覆盖用户已填值）
+        c.setRefTaxRate(ReferenceCalculator.effectiveTaxRate(c.getCompany().history()));
+        c.setRefGrowth(ReferenceCalculator.revenueCagr(c.getCompany().history()));
         model.addAttribute("ctx", c);
         return "params";
     }

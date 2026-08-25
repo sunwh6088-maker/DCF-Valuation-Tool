@@ -494,3 +494,52 @@
   - 首页版本号动态化（变更 #19），自动跟随 pom，无需手动改
 - **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.8 jar；东财不可用期间 `/api/beta` 600519/000858 实测成功（腾讯兜底）
 - **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+
+---
+
+## 变更 #30：参数参考值增强——信用利差自动获取 + 有效税率/营收 CAGR 参考 + ERP/永续提示（2026-08-25）
+
+- **原因**：用户询问 ERP、信用利差、高增长期增长率/年数、永续增长率、有效税率能否自动获取。分析结论：
+  - 信用利差：中债登同一个免费接口（10Y 国债在用）就返回「国债/商业银行普通债AAA/中短期票据AAA」多条曲线，可算利差（票据 AAA 3Y − 国债 3Y）——**可自动获取**
+  - 有效税率：历史数据已含「利润总额 + 所得税费用」（新浪/CSV 均支持）——**可自动计算参考值**
+  - 高增长期增长率：无权威源，但可用历史营收 CAGR 给**参考值一键填入**
+  - ERP：Damodaran 页面国内不可达、A 股无权威免费接口——**给市场化参考区间提示**
+  - 永续增长率/高增长年数：本质是投资者假设——**补充惯例说明**（2%-3%、默认 5 年），不假装自动获取
+- **修改位置**：
+  - `src/main/java/com/dcf/data/RateFetcher.java`：新增 `fetchCnCreditSpread()` + `parseChinabondCreditSpread()`（解析同表「中债中短期票据收益率曲线(AAA)」与国债 3 年列，按**最新共同交易日**对齐；先匹配曲线名再解析数值，避免表头行「3年」文字导致 NumberFormatException——开发过程自纠）
+  - `src/main/java/com/dcf/web/ApiController.java`：新增 `GET /api/creditSpread`（HashMap 构造，遵循 Bug #7 教训）
+  - 新增 `src/main/java/com/dcf/service/ReferenceCalculator.java`：`effectiveTaxRate()`（近 3 年所得税合计÷利润总额合计，亏损年过滤）、`revenueCagr()`（营收复利 CAGR，任一年非正→NaN）
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 `refTaxRate` / `refGrowth`（Double，null=不可用）
+  - `src/main/java/com/dcf/web/PageController.java`：`GET /params` 时按当前历史数据计算参考值（不覆盖用户已填值）
+  - `src/main/resources/templates/params.html`：信用利差加「自动获取」按钮（US 提示手动输入）；高增长期增长率/有效税率加「参考历史」按钮与参考值提示（不可用时自动隐藏）；ERP 提示按市场动态（CN 5.5%-6.5% / US 4.5%-5%）；永续增长率提示补充「长期名义 GDP 增速预期」
+  - 测试：`RateFetcherTest` +3（最新共同日期/忽略 AA+ 行/无对齐日期抛异常）、新增 `ReferenceCalculatorTest`（7 用例）
+- **测试方式**：`mvnw test` 全量通过（85 用例）；实测 `/api/creditSpread` → 200 + spread≈0.004098（与手工测算一致）；600519 自动抓取后参数页显示 CAGR≈17.5%、有效税率≈25.4% 参考值与两个「参考历史」按钮，截图复核布局
+- **可能影响的模块**：参数页（折现率区信用利差、预测假设区增长率/税率）；`/api/creditSpread` 新接口；RateFetcher 中债登解析（10Y 逻辑未动，回归测试覆盖）；不涉及估值计算核心逻辑与导出
+
+---
+
+## 变更 #31：版本 bump v1.1.8 → v1.1.9（2026-08-25）
+
+- **原因**：变更 #30（参数参考值增强）改动了打包内容，本地 jar 与已发布 v1.1.8 Release 不一致；bump 版本号重新发版。
+- **修改位置**：`pom.xml`、`run.bat`/`run.sh`（JAR 变量）、`README.md`（jar 名与版本号）；首页版本号动态化无需改
+- **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.9 jar；启动冒烟 `/api/creditSpread` + 参数页参考值显示
+- **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+---
+
+## 变更 #32：版本 bump v1.1.9 → v1.1.10（2026-08-25）
+
+- **原因**：发版前冒烟验证发现 Bug #8（无会话访问 /params 时 302 重定向 URL 带 `;jsessionid`，welcome 页兜底渲染丢版本号）；修复后本地 jar 内容变化，bump 版本号重新发版。
+- **修改位置**：
+  - `pom.xml`：`<version>` 1.1.9 → 1.1.10
+  - `run.bat` / `run.sh`：`JAR` 变量改为 `dcf-valuation-tool-1.1.10.jar`
+  - `README.md`：jar 名与版本号同步为 1.1.10
+- **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.10 jar；启动后 `curl -L /params` 重定向 URL 不再含 `;jsessionid`，首页显示 `v1.1.10`
+- **可能影响的模块**：打包产物文件名、Release 资产；Session 跟踪策略改为仅 Cookie（影响所有页面跳转，回归覆盖首页/输入页/参数页跳转）
+
+---
+
+## 变更 #33：参数参考值增强功能说明（并入 v1.1.10 Release 说明）
+
+- 信用利差自动获取（中债登同表计算，CN）、有效税率/营收 CAGR「参考历史」一键填入、ERP/永续增长率提示完善——详见变更 #30。

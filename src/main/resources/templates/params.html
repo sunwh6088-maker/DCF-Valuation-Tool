@@ -85,13 +85,16 @@
                         <label class="form-label">市场风险溢价 ERP（%）</label>
                         <input class="form-control" id="erp" name="erp" type="number" step="0.1" min="0" max="15"
                                th:value="${#numbers.formatDecimal(ctx.erp * 100, 1, 1)}" oninput="updateWacc()">
-                        <div class="form-text">CN≈5.5% / US≈4.5%（Damodaran 口径）</div>
+                        <div class="form-text" id="erpHint">CN≈5.5% / US≈4.5%（Damodaran 口径）</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">信用利差（%）</label>
-                        <input class="form-control" id="creditSpread" name="creditSpread" type="number" step="0.1" min="0" max="10"
-                               th:value="${#numbers.formatDecimal(ctx.creditSpread * 100, 1, 1)}" oninput="updateWacc()">
-                        <div class="form-text">债务成本 kd = Rf + 利差（默认 2%）</div>
+                        <div class="input-group">
+                            <input class="form-control" id="creditSpread" name="creditSpread" type="number" step="0.1" min="0" max="10"
+                                   th:value="${#numbers.formatDecimal(ctx.creditSpread * 100, 1, 1)}" oninput="updateWacc()">
+                            <button class="btn btn-outline-primary" type="button" id="spreadBtn" onclick="fetchCreditSpread()">自动获取</button>
+                        </div>
+                        <div class="form-text" id="spreadHint">债务成本 kd = Rf + 利差（默认 2%）；CN 可自动获取（票据 AAA 3Y − 国债 3Y）</div>
                     </div>
                     <div class="col-md-8">
                         <div class="alert alert-light border mb-0" id="waccOut">计算中...</div>
@@ -181,9 +184,13 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">高增长期增长率（%）</label>
-                        <input class="form-control" name="gFirst" type="number" step="0.5" min="-50" max="50"
-                               th:value="${#numbers.formatDecimal(ctx.gFirst * 100, 1, 2)}" required>
-                        <div class="form-text">建议参考历史营收 CAGR</div>
+                        <div class="input-group">
+                            <input class="form-control" name="gFirst" type="number" step="0.5" min="-50" max="50"
+                                   th:value="${#numbers.formatDecimal(ctx.gFirst * 100, 1, 2)}" required>
+                            <button class="btn btn-outline-secondary" type="button" th:if="${ctx.refGrowth != null}"
+                                    onclick="document.querySelector('[name=gFirst]').value = (${ctx.refGrowth} * 100).toFixed(2)">参考历史</button>
+                        </div>
+                        <div class="form-text" th:text="${ctx.refGrowth != null} ? '历史营收 CAGR ≈ ' + ${#numbers.formatDecimal(ctx.refGrowth * 100, 1, 1)} + '%（可一键填入后调整）' : '建议参考历史营收 CAGR'">建议参考历史营收 CAGR</div>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">高增长年数</label>
@@ -197,7 +204,7 @@
                         <label class="form-label">永续增长率（%）</label>
                         <input class="form-control" name="gTerminal" type="number" step="0.1" min="0" max="5"
                                th:value="${#numbers.formatDecimal(ctx.gTerminal * 100, 1, 2)}" required>
-                        <div class="form-text">常取 2%-3%</div>
+                        <div class="form-text">常取 2%-3%（长期名义 GDP 增速预期）</div>
                     </div>
                     <div class="col-md-3" id="gSecondBox" style="display:none">
                         <label class="form-label">成长期增长率（%）</label>
@@ -212,9 +219,13 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">有效税率（%）</label>
-                        <input class="form-control" name="taxRate" type="number" step="0.5" min="0" max="50"
-                               th:value="${#numbers.formatDecimal(ctx.taxRate * 100, 1, 2)}">
-                        <div class="form-text">默认 25%，建议用历史均值</div>
+                        <div class="input-group">
+                            <input class="form-control" name="taxRate" type="number" step="0.5" min="0" max="50"
+                                   th:value="${#numbers.formatDecimal(ctx.taxRate * 100, 1, 2)}">
+                            <button class="btn btn-outline-secondary" type="button" th:if="${ctx.refTaxRate != null}"
+                                    onclick="document.querySelector('[name=taxRate]').value = (${ctx.refTaxRate} * 100).toFixed(1)">参考历史</button>
+                        </div>
+                        <div class="form-text" th:text="${ctx.refTaxRate != null} ? '历史近 3 年均值 ≈ ' + ${#numbers.formatDecimal(ctx.refTaxRate * 100, 1, 1)} + '%（可一键填入）' : '默认 25%，建议用历史均值'">默认 25%，建议用历史均值</div>
                     </div>
 
                     <div class="col-12 d-flex justify-content-between mt-4">
@@ -232,6 +243,33 @@
 <script>
     // 市场默认值提示（不覆盖用户已填值）
     var market = /*[[${ctx.market()}]]*/ 'CN';
+    function fetchCreditSpread() {
+        var btn = document.getElementById('spreadBtn');
+        var hint = document.getElementById('spreadHint');
+        if (market !== 'CN') {
+            if (hint) hint.textContent = '美股请手动输入信用利差（可参考公开债券利差数据）';
+            return;
+        }
+        btn.disabled = true;
+        hint.textContent = '获取中（中债登）...';
+        fetch('/api/creditSpread')
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                if (data.spread != null) {
+                    document.getElementById('creditSpread').value = (data.spread * 100).toFixed(2);
+                    hint.textContent = '已自动获取 ' + (data.spread * 100).toFixed(2)
+                        + '%（来源：' + (data.source || '') + '，可手动覆盖）';
+                } else {
+                    hint.textContent = '自动获取失败，请手动输入（' + (data.error || '数据不足') + '）';
+                }
+                updateWacc();
+            })
+            .catch(e => {
+                btn.disabled = false;
+                hint.textContent = '自动获取失败，请手动输入';
+            });
+    }
     function fetchRf() {
         var btn = document.getElementById('rfBtn');
         var hint = document.getElementById('rfHint');
@@ -298,6 +336,13 @@
     }
     toggleMode();
     updateWacc();
+    // ERP 参考区间按市场提示（A 股无权威免费接口，仅参考；美股 Damodaran 口径）
+    var erpHint = document.getElementById('erpHint');
+    if (erpHint) {
+        erpHint.textContent = market === 'US'
+            ? 'US 参考 4.5%-5%（Damodaran 口径，可手动覆盖）'
+            : 'CN 参考 5.5%-6.5%（A 股无权威免费接口，可手动覆盖）';
+    }
 
     // 提交前把百分比字段换算为小数（后端按小数口径校验：如 Rf 1.70% → 0.017）
     document.getElementById('paramsForm').addEventListener('submit', function (e) {

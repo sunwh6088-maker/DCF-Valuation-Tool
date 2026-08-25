@@ -52,6 +52,12 @@ public class RateFetcher {
     /** 「10年」列在曲线数据行中的下标：曲线名称/日期/3月/6月/1年/3年/5年/7年/10年/30年。 */
     private static final int CN_COL_10Y = 8;
 
+    /** 「3年」列下标（信用利差用：票据AAA 3Y − 国债 3Y）。 */
+    private static final int CN_COL_3Y = 5;
+
+    /** 信用利差基准曲线：中短期票据收益率曲线(AAA)。 */
+    private static final String CN_TARGET_NOTE = "中债中短期票据收益率曲线(AAA)";
+
     /** 目标曲线行首列匹配词（排除“中债商业银行普通债/中短期票据”等行）。 */
     private static final String CN_TARGET_CURVE = "中债国债收益率曲线";
 
@@ -60,6 +66,7 @@ public class RateFetcher {
 
     private Double cachedUs10y;
     private Double cachedCn10y;
+    private Double cachedCnSpread;
     private LocalDateTime cacheTime;
 
     /** 获取美国 10 年期国债收益率（小数，如 0.0474）；失败返回 {@link #NOT_AVAILABLE}。 */
@@ -103,6 +110,31 @@ public class RateFetcher {
         }
     }
 
+    /**
+     * 获取中国信用利差参考（中短期票据 AAA 3 年 − 国债 3 年，小数如 0.0041）。
+     * 同一张中债登历史查询表即包含两条曲线，按最新共同交易日对齐；失败返回 {@link #NOT_AVAILABLE}。
+     */
+    public synchronized double fetchCnCreditSpread() {
+        if (cachedCnSpread != null && cacheTime != null
+                && cacheTime.isAfter(LocalDateTime.now().minusHours(24))) {
+            return cachedCnSpread;
+        }
+        try {
+            LocalDate end = LocalDate.now();
+            LocalDate start = end.minusDays(CN_QUERY_DAYS);
+            String url = CHINABOND_HISTORY_URL
+                    + "?startDate=" + start + "&endDate=" + end
+                    + "&gjqx=0&qxId=ycqx&locale=cn_ZH";
+            String html = fetchText(url);
+            double value = parseChinabondCreditSpread(html);
+            cachedCnSpread = value;
+            cacheTime = LocalDateTime.now();
+            return value;
+        } catch (Exception e) {
+            return NOT_AVAILABLE;
+        }
+    }
+
     /** 按市场获取：US→FRED；CN→中债登（失败回退默认手动）。 */
     public double fetch(String market) {
         return "US".equalsIgnoreCase(market) ? fetchUs10y() : fetchCn10y();
@@ -129,6 +161,50 @@ public class RateFetcher {
             return Double.parseDouble(value) / 100.0;
         }
         throw new IllegalStateException("中债登 HTML 中未找到目标曲线数据");
+    }
+
+    /**
+     * 解析中债登 historyQuery HTML，计算信用利差 = 中短期票据AAA 3年 − 国债 3年。
+     * 取两条曲线「最新共同交易日」的 3 年列（避免跨日错配）；包私有，便于单元测试。
+     *
+     * @param html UTF-8 编码的查询结果页面
+     * @return 利差（小数，如 0.004103）
+     */
+    static double parseChinabondCreditSpread(String html) {
+        java.util.TreeMap<String, Double> gov3y = new java.util.TreeMap<>();
+        java.util.TreeMap<String, Double> note3y = new java.util.TreeMap<>();
+        Matcher trMatcher = TR_PATTERN.matcher(html);
+        while (trMatcher.find()) {
+            List<String> cells = extractCells(trMatcher.group(1));
+            if (cells.size() <= CN_COL_3Y || cells.size() < 2) {
+                continue;
+            }
+            String name = cells.get(0);
+            // 先匹配曲线名称再解析数值：表头行（曲线名称/日期/3月/.../30年）的第 5 列是文字「3年」，
+            // 提前解析会 NumberFormatException
+            if (!name.startsWith(CN_TARGET_CURVE) && !name.startsWith(CN_TARGET_NOTE)) {
+                continue;
+            }
+            String date = cells.get(1);
+            String value = cells.get(CN_COL_3Y);
+            if (value.isEmpty()) {
+                continue;
+            }
+            double v = Double.parseDouble(value) / 100.0;
+            if (name.startsWith(CN_TARGET_CURVE)) {
+                gov3y.put(date, v);
+            } else {
+                note3y.put(date, v);
+            }
+        }
+        // 从最新日期向前找两条曲线共有的交易日
+        for (String date : gov3y.descendingKeySet()) {
+            Double note = note3y.get(date);
+            if (note != null) {
+                return note - gov3y.get(date);
+            }
+        }
+        throw new IllegalStateException("中债登 HTML 中未找到可对齐的国债/票据AAA 3 年曲线");
     }
 
     /** 提取一行 <tr> 内的所有 <td>/<th> 单元格文本（去标签、去空白）。 */
