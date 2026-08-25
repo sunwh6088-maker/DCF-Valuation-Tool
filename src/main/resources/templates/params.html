@@ -56,18 +56,18 @@
                 <h6>估值假设参数 <span class="step-badge">全部可手动覆盖</span></h6>
                 <form method="post" action="/params" id="paramsForm" class="row g-3">
                     <!-- 折现率 -->
-                    <div class="col-12"><hr class="my-1"><b>① 折现率（WACC）</b></div>
+                    <div class="col-12"><hr class="my-1"><b>① 折现率（WACC / CAPM / 手动 三选一）</b></div>
                     <div class="col-md-4">
                         <label class="form-label">无风险利率 Rf（%）</label>
                         <input class="form-control" id="rf" name="rf" type="number" step="0.01" min="0" max="10"
-                               th:value="${#numbers.formatDecimal(ctx.rf * 100, 1, 2)}" oninput="updateCapm('rf','beta','erp','capmOut')">
+                               th:value="${#numbers.formatDecimal(ctx.rf * 100, 1, 2)}" oninput="updateWacc()">
                         <div class="form-text">10 年期国债：CN≈1.7% / US≈4.3%</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Beta</label>
                         <div class="input-group">
                             <input class="form-control" id="beta" name="beta" type="number" step="0.01" min="0" max="3"
-                                   th:value="${ctx.betaInput}" oninput="updateCapm('rf','beta','erp','capmOut')">
+                                   th:value="${ctx.betaInput}" oninput="updateWacc()">
                             <button class="btn btn-outline-primary" type="button"
                                     onclick="fetchBeta('betaCode','beta','betaHint','CN')">自动算</button>
                         </div>
@@ -77,19 +77,35 @@
                     <div class="col-md-4">
                         <label class="form-label">市场风险溢价 ERP（%）</label>
                         <input class="form-control" id="erp" name="erp" type="number" step="0.1" min="0" max="15"
-                               th:value="${#numbers.formatDecimal(ctx.erp * 100, 1, 1)}" oninput="updateCapm('rf','beta','erp','capmOut')">
+                               th:value="${#numbers.formatDecimal(ctx.erp * 100, 1, 1)}" oninput="updateWacc()">
                         <div class="form-text">CN≈5.5% / US≈4.5%（Damodaran 口径）</div>
                     </div>
-                    <div class="col-12">
-                        <div class="alert alert-light border mb-0" id="capmOut">CAPM 折现率 = --</div>
+                    <div class="col-md-4">
+                        <label class="form-label">信用利差（%）</label>
+                        <input class="form-control" id="creditSpread" name="creditSpread" type="number" step="0.1" min="0" max="10"
+                               th:value="${#numbers.formatDecimal(ctx.creditSpread * 100, 1, 1)}" oninput="updateWacc()">
+                        <div class="form-text">债务成本 kd = Rf + 利差（默认 2%）</div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="useCapm" name="useCapm" checked
-                                   th:checked="${ctx.useCapm}" onchange="toggleCapm()">
-                            <label class="form-check-label" for="useCapm">使用 CAPM 折现率</label>
+                    <div class="col-md-8">
+                        <div class="alert alert-light border mb-0" id="waccOut">计算中...</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="modeWacc" name="discountMode" value="wacc"
+                                   th:checked="${ctx.discountMode == 'wacc'}" onchange="toggleMode()">
+                            <label class="form-check-label" for="modeWacc">WACC 加权（推荐）</label>
                         </div>
-                        <div class="form-text">关闭后可手动指定（通常 8%-12%）</div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="modeCapm" name="discountMode" value="capm"
+                                   th:checked="${ctx.discountMode == 'capm'}" onchange="toggleMode()">
+                            <label class="form-check-label" for="modeCapm">纯 CAPM（ke）</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" id="modeManual" name="discountMode" value="manual"
+                                   th:checked="${ctx.discountMode == 'manual'}" onchange="toggleMode()">
+                            <label class="form-check-label" for="modeManual">手动指定</label>
+                        </div>
+                        <div class="form-text">WACC = kd×(1-t)×D/(D+E) + ke×E/(D+E)；纯 CAPM 不含债务，差异即资本结构影响</div>
                     </div>
                     <div class="col-md-6" id="manualRateBox" style="display:none">
                         <label class="form-label">手动折现率（%）</label>
@@ -141,29 +157,54 @@
 <script>
     // 市场默认值提示（不覆盖用户已填值）
     var market = /*[[${ctx.market()}]]*/ 'CN';
-    function toggleCapm() {
-        var on = document.getElementById('useCapm').checked;
-        document.getElementById('manualRateBox').style.display = on ? 'none' : 'block';
+    var mvMarketCap = /*[[${ctx.company.snapshot.price * ctx.company.snapshot.sharesOutstanding}]]*/ 0;
+    var mvInterestDebt = /*[[${ctx.company.snapshot.interestDebt}]]*/ 0;
+    function currentMode() {
+        var el = document.querySelector('input[name=discountMode]:checked');
+        return el ? el.value : 'wacc';
+    }
+    function toggleMode() {
+        document.getElementById('manualRateBox').style.display = currentMode() === 'manual' ? 'block' : 'none';
+        updateWacc();
+    }
+    function updateWacc() {
+        var rf = parseFloat(document.getElementById('rf').value) / 100 || 0;
+        var beta = parseFloat(document.getElementById('beta').value) || 0;
+        var erp = parseFloat(document.getElementById('erp').value) / 100 || 0;
+        var spread = parseFloat(document.getElementById('creditSpread').value) / 100 || 0;
+        var tax = parseFloat(document.querySelector('[name=taxRate]').value) / 100 || 0;
+        var ke = rf + beta * erp;
+        var kd = rf + spread;
+        var wd = mvInterestDebt > 0 ? mvInterestDebt / (mvInterestDebt + mvMarketCap) : 0;
+        var wacc = kd * (1 - tax) * wd + ke * (1 - wd);
+        var mode = currentMode();
+        var rate = mode === 'capm' ? ke
+            : mode === 'manual' ? (parseFloat(document.getElementById('manualRate').value) / 100 || 0)
+            : wacc;
+        var out = document.getElementById('waccOut');
+        if (out) {
+            out.innerHTML = 'ke = ' + (ke * 100).toFixed(2) + '%　|　kd = ' + (kd * 100).toFixed(2) + '%　|　债务权重 = ' + (wd * 100).toFixed(1) + '%<br>'
+                + '<b>折现率 = ' + (rate * 100).toFixed(2) + '%</b>'
+                + '（来源：' + (mode === 'wacc' ? 'WACC 加权' : mode === 'capm' ? '纯 CAPM' : '手动指定') + '）';
+        }
+        return rate;
     }
     function validateParams() {
         var g = parseFloat(document.querySelector('[name=gTerminal]').value) / 100;
-        var r = parseFloat(document.querySelector('[name=manualRate]').value) / 100;
-        var ke = updateCapm('rf','beta','erp','capmOut');
-        var useCapm = document.getElementById('useCapm').checked;
-        var rate = useCapm ? ke : r;
+        var rate = updateWacc();
         if (rate <= g) {
             alert('折现率必须大于永续增长率！当前折现率 ' + (rate*100).toFixed(2) + '%，永续增长率 ' + (g*100).toFixed(2) + '%');
             return false;
         }
         return true;
     }
-    toggleCapm();
-    updateCapm('rf','beta','erp','capmOut');
+    toggleMode();
+    updateWacc();
 
     // 提交前把百分比字段换算为小数（后端按小数口径校验：如 Rf 1.70% → 0.017）
     document.getElementById('paramsForm').addEventListener('submit', function (e) {
         if (!validateParams()) { e.preventDefault(); return; }
-        var pct = ['rf', 'erp', 'manualRate', 'taxRate', 'gFirst', 'gTerminal'];
+        var pct = ['rf', 'erp', 'creditSpread', 'manualRate', 'taxRate', 'gFirst', 'gTerminal'];
         for (var i = 0; i < pct.length; i++) {
             var el = document.querySelector('[name=' + pct[i] + ']');
             if (el && el.value !== '') { el.value = parseFloat(el.value) / 100; }

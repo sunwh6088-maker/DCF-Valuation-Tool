@@ -4,6 +4,7 @@ import com.dcf.data.model.HistoricalData;
 import com.dcf.model.DcfModel;
 import com.dcf.model.SensitivityResult;
 import com.dcf.model.ValuationResult;
+import com.dcf.model.WaccCalculator;
 import com.dcf.web.ValuationContext;
 
 /**
@@ -39,9 +40,19 @@ public class ValuationService {
         // 1. 基准 FCF（最近一年优先，回退近 3 年均值）
         double baseFcf = baseFcf(h);
 
-        // 2. 折现率：CAPM 或手动覆盖
+        // 2. 折现率：WACC 加权（推荐） / 纯 CAPM / 手动，三选一
         double ke = DcfModel.capmCostOfEquity(ctx.getRf(), ctx.getBetaInput(), ctx.getErp());
-        double discountRate = ctx.isUseCapm() ? ke : ctx.getManualDiscountRate();
+        double interestDebt = ctx.getCompany().snapshot().interestDebt();
+        double marketCap = ctx.getCompany().snapshot().price() * ctx.getCompany().snapshot().sharesOutstanding();
+        double kd = WaccCalculator.costOfDebt(ctx.getRf(), ctx.getCreditSpread());
+        double debtWeight = WaccCalculator.debtWeight(interestDebt, marketCap);
+        double wacc = WaccCalculator.wacc(ke, kd, debtWeight, ctx.getTaxRate());
+        ctx.setWaccDetails(ke, kd, debtWeight, wacc);
+        double discountRate = switch (ctx.getDiscountMode()) {
+            case "capm" -> ke;
+            case "manual" -> ctx.getManualDiscountRate();
+            default -> wacc;
+        };
         if (discountRate <= 0) {
             throw new IllegalArgumentException("折现率必须大于 0");
         }

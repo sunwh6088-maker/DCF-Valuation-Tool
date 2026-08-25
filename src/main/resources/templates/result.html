@@ -23,7 +23,7 @@
             <div class="card p-4 text-center h-100">
                 <div class="metric-label">每股内在价值</div>
                 <div class="big-number text-primary" th:text="${#numbers.formatDecimal(ps, 1, 2)}"></div>
-                <div class="metric-label" th:text="'折现率口径：' + ${ctx.useCapm} ? 'CAPM' : '手动指定'"></div>
+                <div class="metric-label" th:text="${ctx.discountMode == 'wacc'} ? '折现率口径：WACC 加权' : (${ctx.discountMode == 'capm'} ? '折现率口径：纯 CAPM' : '折现率口径：手动指定')"></div>
             </div>
         </div>
         <div class="col-md-4">
@@ -91,7 +91,10 @@
                     <tr><td class="text-muted">无风险利率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.rf * 100, 2, 2)} + '%'"></td></tr>
                     <tr><td class="text-muted">Beta</td><td class="text-end" th:text="${ctx.betaInput}"></td></tr>
                     <tr><td class="text-muted">市场风险溢价</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.erp * 100, 2, 1)} + '%'"></td></tr>
-                    <tr><td class="text-muted">折现率</td><td class="text-end" th:text="${ctx.useCapm} ? ${#numbers.formatDecimal(ctx.rf + ctx.betaInput * ctx.erp, 2, 2)} + '% (CAPM)' : ${#numbers.formatDecimal(ctx.manualDiscountRate * 100, 2, 2)} + '% (手动)'"></td></tr>
+                    <tr><td class="text-muted">股权成本 ke（CAPM）</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.keValue * 100, 2, 2)} + '%'"></td></tr>
+                    <tr><td class="text-muted">债务成本 kd</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.kdValue * 100, 2, 2)} + '%'"></td></tr>
+                    <tr><td class="text-muted">债务权重 D/(D+E)</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.debtWeightValue * 100, 2, 1)} + '%'"></td></tr>
+                    <tr><td class="text-muted">折现率</td><td class="text-end" th:text="${ctx.discountMode == 'wacc'} ? ${#numbers.formatDecimal(ctx.waccValue * 100, 2, 2)} + '% (WACC)' : (${ctx.discountMode == 'capm'} ? ${#numbers.formatDecimal(ctx.keValue * 100, 2, 2)} + '% (CAPM)' : ${#numbers.formatDecimal(ctx.manualDiscountRate * 100, 2, 2)} + '% (手动)')"></td></tr>
                     <tr><td class="text-muted">有效税率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.taxRate * 100, 2, 1)} + '%'"></td></tr>
                     <tr><td class="text-muted">高增长期增长率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.gFirst * 100, 2, 2)} + '% × ' + ${ctx.nFirst} + ' 年'"></td></tr>
                     <tr><td class="text-muted">过渡期</td><td class="text-end" th:text="${ctx.nTransition} + ' 年线性过渡'"></td></tr>

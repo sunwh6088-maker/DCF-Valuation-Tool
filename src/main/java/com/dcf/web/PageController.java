@@ -158,7 +158,8 @@ public class PageController {
     public String saveParams(@RequestParam double rf,
                              @RequestParam double beta,
                              @RequestParam double erp,
-                             @RequestParam(defaultValue = "true") boolean useCapm,
+                             @RequestParam(defaultValue = "wacc") String discountMode,
+                             @RequestParam(defaultValue = "0.02") double creditSpread,
                              @RequestParam(defaultValue = "0.10") double manualRate,
                              @RequestParam(defaultValue = "0.25") double taxRate,
                              @RequestParam double gFirst,
@@ -169,11 +170,12 @@ public class PageController {
         ValuationContext c = ctx(session);
         try {
             // 范围校验（后端兜底，前端已预校验）
-            check(c, rf, beta, erp, manualRate, taxRate, gFirst, gTerminal, nFirst, nTransition);
+            check(c, rf, beta, erp, creditSpread, discountMode, manualRate, taxRate, gFirst, gTerminal, nFirst, nTransition);
             c.setRf(rf);
             c.setBetaInput(beta);
             c.setErp(erp);
-            c.setUseCapm(useCapm);
+            c.setDiscountMode(discountMode);
+            c.setCreditSpread(creditSpread);
             c.setManualDiscountRate(manualRate);
             c.setTaxRate(taxRate);
             c.setGFirst(gFirst);
@@ -277,13 +279,14 @@ public class PageController {
         }
     }
 
-    /** 参数范围校验（与 dcf/validation.py 口径一致）。 */
-    private void check(ValuationContext c, double rf, double beta, double erp,
-                       double manualRate, double taxRate, double gFirst, double gTerminal,
+    /** 参数范围校验（与前端校验口径一致）。 */
+    private void check(ValuationContext c, double rf, double beta, double erp, double creditSpread,
+                       String discountMode, double manualRate, double taxRate, double gFirst, double gTerminal,
                        int nFirst, int nTransition) {
         require(rf, 0.0, 0.10, "无风险利率");
         require(beta, 0.0, 3.0, "Beta");
         require(erp, 0.0, 0.15, "市场风险溢价");
+        require(creditSpread, 0.0, 0.10, "信用利差");
         require(manualRate, 0.001, 0.30, "手动折现率");
         require(taxRate, 0.0, 0.50, "税率");
         require(gFirst, -0.50, 0.50, "高增长期增长率");
@@ -292,7 +295,15 @@ public class PageController {
             throw new IllegalArgumentException("预测年数设置非法（1-20 年）");
         }
         double ke = com.dcf.model.DcfModel.capmCostOfEquity(rf, beta, erp);
-        double rate = c.isUseCapm() ? ke : manualRate;
+        double kd = com.dcf.model.WaccCalculator.costOfDebt(rf, creditSpread);
+        double wd = com.dcf.model.WaccCalculator.debtWeight(
+                c.getCompany().snapshot().interestDebt(),
+                c.getCompany().snapshot().price() * c.getCompany().snapshot().sharesOutstanding());
+        double rate = switch (discountMode) {
+            case "capm" -> ke;
+            case "manual" -> manualRate;
+            default -> com.dcf.model.WaccCalculator.wacc(ke, kd, wd, taxRate);
+        };
         if (rate <= gTerminal) {
             throw new IllegalArgumentException("折现率必须大于永续增长率，当前折现率 "
                     + String.format("%.2f%%", rate * 100) + "，永续增长率 "

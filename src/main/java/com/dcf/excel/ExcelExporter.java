@@ -72,13 +72,19 @@ public class ExcelExporter {
             row(s3, 1, "无风险利率 Rf", pct(ctx.getRf()), "10 年期国债收益率");
             row(s3, 2, "Beta", ctx.getBetaInput(), "CAPM 系数");
             row(s3, 3, "市场风险溢价 ERP", pct(ctx.getErp()), "Damodaran 口径");
-            row(s3, 4, "折现率（WACC）", pct(ctx.isUseCapm() ? ke : ctx.getManualDiscountRate()),
-                    ctx.isUseCapm() ? "CAPM 计算" : "手动指定");
-            row(s3, 5, "有效税率", pct(ctx.getTaxRate()), "");
-            row(s3, 6, "高增长期增长率", pct(ctx.getGFirst()), "前 " + ctx.getNFirst() + " 年");
-            row(s3, 7, "高增长年数", ctx.getNFirst(), "");
-            row(s3, 8, "过渡年数", ctx.getNTransition(), "线性过渡到永续增长率");
-            row(s3, 9, "永续增长率 g", pct(ctx.getGTerminal()), "常取 2%-3%");
+            row(s3, 4, "信用利差", pct(ctx.getCreditSpread()), "债务成本 = Rf + 利差");
+            row(s3, 5, "股权成本 ke（CAPM）", pct(ctx.getKeValue()), "Rf + Beta × ERP");
+            row(s3, 6, "债务成本 kd", pct(ctx.getKdValue()), "Rf + 信用利差");
+            row(s3, 7, "债务权重 D/(D+E)", pct(ctx.getDebtWeightValue()), "有息负债 /（有息负债 + 市值）");
+            row(s3, 8, "折现率（WACC）", pct(ctx.getWaccValue()),
+                    "WACC = kd×(1-t)×wD + ke×wE");
+            row(s3, 9, "折现率来源", ctx.getDiscountMode(),
+                    "wacc=加权 / capm=纯CAPM / manual=手动");
+            row(s3, 10, "有效税率", pct(ctx.getTaxRate()), "");
+            row(s3, 11, "高增长期增长率", pct(ctx.getGFirst()), "前 " + ctx.getNFirst() + " 年");
+            row(s3, 12, "高增长年数", ctx.getNFirst(), "");
+            row(s3, 13, "过渡年数", ctx.getNTransition(), "线性过渡到永续增长率");
+            row(s3, 14, "永续增长率 g", pct(ctx.getGTerminal()), "常取 2%-3%");
             autoWidth(s3, 3);
 
             // ---------- 4. 预测 ----------

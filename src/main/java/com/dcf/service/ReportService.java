@@ -25,7 +25,11 @@ public class ReportService {
         double price = snap.price();
         double margin = (res.perShareValue() - price) / price;
         double ke = ctx.getRf() + ctx.getBetaInput() * ctx.getErp();
-        double rate = ctx.isUseCapm() ? ke : ctx.getManualDiscountRate();
+        double rate = switch (ctx.getDiscountMode()) {
+            case "capm" -> ke;
+            case "manual" -> ctx.getManualDiscountRate();
+            default -> ctx.getWaccValue();
+        };
 
         StringBuilder sb = new StringBuilder();
         sb.append("# ").append(snap.name()).append("（").append(c.code()).append("）DCF 估值报告\n\n");
@@ -49,7 +53,11 @@ public class ReportService {
         sb.append("- 终值：Gordon 模型 TV = FCFₙ×(1+g)/(r−g)\n");
         sb.append("- 企业价值 EV = 显式期现值 + 终值现值\n");
         sb.append("- 股权价值 = EV − 净债务 − 少数股东权益；每股价值 = 股权价值 / 总股本\n");
-        sb.append("- 折现率：").append(ctx.isUseCapm() ? "CAPM（ke = rf + β×ERP）" : "手动指定").append("\n\n");
+        sb.append("- 折现率：").append(switch (ctx.getDiscountMode()) {
+            case "capm" -> "CAPM（ke = rf + β×ERP）";
+            case "manual" -> "手动指定";
+            default -> "WACC 加权（kd×(1-t)×D/(D+E) + ke×E/(D+E)）";
+        }).append("\n\n");
 
         // 三、历史财务
         sb.append("## 三、历史财务与自由现金流（单位：元）\n\n");
@@ -68,7 +76,14 @@ public class ReportService {
         sb.append(String.format("| 无风险利率 Rf | %.2f%% |\n", ctx.getRf() * 100));
         sb.append(String.format("| Beta | %.3f |\n", ctx.getBetaInput()));
         sb.append(String.format("| 市场风险溢价 ERP | %.1f%% |\n", ctx.getErp() * 100));
-        sb.append(String.format("| 折现率 | %.2f%%（%s） |\n", rate * 100, ctx.isUseCapm() ? "CAPM" : "手动"));
+        sb.append(String.format("| 折现率 | %.2f%%（%s） |\n", rate * 100, switch (ctx.getDiscountMode()) {
+            case "capm" -> "CAPM";
+            case "manual" -> "手动";
+            default -> "WACC";
+        }));
+        sb.append(String.format("| 股权成本 ke | %.2f%% |\n", ctx.getKeValue() * 100));
+        sb.append(String.format("| 债务成本 kd | %.2f%% |\n", ctx.getKdValue() * 100));
+        sb.append(String.format("| 债务权重 D/(D+E) | %.1f%% |\n", ctx.getDebtWeightValue() * 100));
         sb.append(String.format("| 有效税率 | %.1f%% |\n", ctx.getTaxRate() * 100));
         sb.append(String.format("| 高增长期增长率 | %.2f%% × %d 年 |\n", ctx.getGFirst() * 100, ctx.getNFirst()));
         sb.append(String.format("| 过渡期 | %d 年线性过渡 |\n", ctx.getNTransition()));

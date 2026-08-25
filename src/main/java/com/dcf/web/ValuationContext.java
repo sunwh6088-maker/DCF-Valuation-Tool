@@ -22,13 +22,20 @@ public class ValuationContext {
     private double rf = 0.017;            // 无风险利率（默认中国 10Y）
     private double betaInput = 1.0;       // Beta（自动填充或手动）
     private double erp = 0.055;           // 市场风险溢价
-    private boolean useCapm = true;       // true=折现率用 CAPM 结果；false=手动指定
+    private String discountMode = "wacc";   // 折现率来源：wacc=WACC加权 / capm=纯CAPM / manual=手动
     private double manualDiscountRate = 0.10; // 手动折现率
+    private double creditSpread = 0.02;       // 债务成本信用利差（kd = Rf + 利差）
     private double taxRate = 0.25;        // 有效税率
     private double gFirst = 0.08;         // 高增长期增长率
     private int nFirst = 5;               // 高增长年数
     private int nTransition = 5;          // 过渡年数
     private double gTerminal = 0.025;     // 永续增长率
+
+    // ---- WACC 明细（计算结果） ----
+    private double keValue = Double.NaN;         // 股权成本（CAPM）
+    private double kdValue = Double.NaN;         // 债务成本（Rf + 信用利差）
+    private double debtWeightValue = Double.NaN; // 债务权重 D/(D+E)
+    private double waccValue = Double.NaN;       // 加权平均资本成本
 
     // ---- 计算结果 ----
     private ValuationResult result;
@@ -59,11 +66,27 @@ public class ValuationContext {
     public double getErp() { return erp; }
     public void setErp(double erp) { this.erp = erp; }
 
-    public boolean isUseCapm() { return useCapm; }
-    public void setUseCapm(boolean useCapm) { this.useCapm = useCapm; }
+    public String getDiscountMode() { return discountMode; }
+    public void setDiscountMode(String discountMode) { this.discountMode = discountMode; }
 
     public double getManualDiscountRate() { return manualDiscountRate; }
     public void setManualDiscountRate(double manualDiscountRate) { this.manualDiscountRate = manualDiscountRate; }
+
+    public double getCreditSpread() { return creditSpread; }
+    public void setCreditSpread(double creditSpread) { this.creditSpread = creditSpread; }
+
+    public double getKeValue() { return keValue; }
+    public double getKdValue() { return kdValue; }
+    public double getDebtWeightValue() { return debtWeightValue; }
+    public double getWaccValue() { return waccValue; }
+
+    /** 记录本次计算的 WACC 明细（结果页展示用）。 */
+    public void setWaccDetails(double ke, double kd, double debtWeight, double wacc) {
+        this.keValue = ke;
+        this.kdValue = kd;
+        this.debtWeightValue = debtWeight;
+        this.waccValue = wacc;
+    }
 
     public double getTaxRate() { return taxRate; }
     public void setTaxRate(double taxRate) { this.taxRate = taxRate; }
