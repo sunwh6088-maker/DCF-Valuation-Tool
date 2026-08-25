@@ -364,3 +364,15 @@
   - 首页版本号无需再改（变更 #19 已动态化，自动跟随 pom）
 - **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.4 jar；启动冒烟，首页显示 "Java 版 v1.1.4"
 - **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+---
+
+## 变更 #22：港股代码输入友好提示（2026-08-25）
+
+- **原因**：用户输入港股代码（如腾讯 H00700）时，前端 `pattern="[0-9]{6}"` 直接拦截只报笼统的"格式错误"，未说明港股不在支持范围，误导用户以为代码格式输错。
+- **修改位置**：
+  - `src/main/java/com/dcf/data/DataService.java`：`normalizeCode()` 对 `Hxxxxx`/`HKxxxxx` 格式抛出明确中文提示（"港股暂不支持自动抓取，请改用美股手动输入入口"），其他非法格式提示同步补充说明
+  - `src/main/resources/templates/input-a.html`：3 处代码输入框加 `title` 提示；自动抓取说明文案更新（明确 A 股范围 + 港股指引）；新增 JS 在 `pattern` 不匹配时 `setCustomValidity` 显示友好中文提示
+  - 新增 `src/test/java/com/dcf/data/DataServiceTest.java`：normalizeCode 全角/前缀归一化、港股 H00700/HK00700 友好报错、其他非法格式用例
+- **测试方式**：`mvnw test -Dtest=DataServiceTest` 通过（新增 3 用例）；全量测试通过；冒烟 POST `/input/a/auto` code=H00700 返回友好错误提示而非 500
+- **可能影响的模块**：A 股输入页（提示文案，不影响正常 A 股流程）；代码校验链路（错误消息更明确）；不涉及估值逻辑

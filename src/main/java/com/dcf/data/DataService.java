@@ -148,12 +148,16 @@ public class DataService {
 
     /** 代码归一化：去前缀/后缀/全角转半角，校验 6 位数字。 */
     public static String normalizeCode(String code) {
+        String raw = code == null ? "" : code;
         String c = java.text.Normalizer.normalize(code == null ? "" : code, java.text.Normalizer.Form.NFKC)
                 .toUpperCase()
                 .replace("SH", "").replace("SZ", "")
                 .replace(".", "").replace(" ", "");
         if (!c.matches("\\d{6}")) {
-            throw new IllegalArgumentException("A股代码必须是 6 位数字（如 600519），当前输入：" + code);
+            if (c.matches("H\\d{5}") || c.matches("HK\\d{5}")) {
+                throw new IllegalArgumentException("港股暂不支持自动抓取（如腾讯 H00700）。请改用「美股手动输入」入口，代码填 00700 并手动录入财务数据。");
+            }
+            throw new IllegalArgumentException("A股代码必须是 6 位数字（如 600519），当前输入：" + raw + "。港股暂不支持自动抓取，美股请用「美股手动输入」入口。");
         }
         return c;
     }
