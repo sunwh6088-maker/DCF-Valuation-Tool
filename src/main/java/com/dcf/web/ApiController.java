@@ -29,12 +29,22 @@ public class ApiController {
      */
     @GetMapping("/api/beta")
     public Map<String, Object> beta(@RequestParam String code) {
+        // 注意：不能用 Map.of —— 它不允许 null 值；Beta 获取失败/数据不足时
+        // 需要返回 beta=null + error 文案，Map.of 会直接抛 NullPointerException 导致 500。
+        Map<String, Object> resp = new java.util.HashMap<>();
         try {
             double b = dataService.fetchBeta(code);
-            return Map.of("beta", Double.isNaN(b) ? null : b);
+            if (Double.isNaN(b)) {
+                resp.put("beta", null);
+                resp.put("error", "数据不足（近 3 年周线样本少于 30 条或接口未返回数据），请手动输入 Beta");
+            } else {
+                resp.put("beta", b);
+            }
         } catch (Exception e) {
-            return Map.of("beta", null, "error", e.getMessage());
+            resp.put("beta", null);
+            resp.put("error", e.getMessage() == null ? "Beta 自动计算失败，请手动输入" : e.getMessage());
         }
+        return resp;
     }
 
     /**
@@ -43,10 +53,12 @@ public class ApiController {
      */
     @GetMapping("/api/rf")
     public Map<String, Object> rf(@RequestParam String market) {
+        // 同 beta：Map.of 不允许 null，无风险利率获取失败时 rate=null 会抛 NPE。
+        Map<String, Object> resp = new java.util.HashMap<>();
         double v = rateFetcher.fetch(market);
-        return Map.of(
-                "rate", Double.isNaN(v) ? null : v,
-                "source", RateFetcher.sourceLabel(market));
+        resp.put("rate", Double.isNaN(v) ? null : v);
+        resp.put("source", RateFetcher.sourceLabel(market));
+        return resp;
     }
 
     /**

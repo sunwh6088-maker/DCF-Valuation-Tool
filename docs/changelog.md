@@ -423,3 +423,12 @@
   - 首页版本号动态化（变更 #19），自动跟随 pom，无需手动改
 - **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.6 jar；启动冒烟 600519 全流程 + 结果页截图复核热力图
 - **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+
+---
+
+## Bug #8：Beta 自动计算接口 500（Map.of 不允许 null 值）——详见 docs/bug-log.md Bug #7
+
+- **原因 / 修改位置 / 测试方式 / 可能影响的模块**：完整 4 要素记录在 `docs/bug-log.md` 的 Bug #7。
+  简版：`ApiController.beta()`/`rf()` 用 `Map.of` 构造响应，null 值（Beta 计算失败/无风险利率获取失败）触发 NPE 500；
+  已改用 HashMap，失败时返回 200 + 具体 error 文案。前端无需改动。

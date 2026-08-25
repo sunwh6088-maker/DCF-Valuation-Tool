@@ -83,3 +83,24 @@
 - **修改位置**：`README.md` 代理示例段（合并为单行 `$env:HTTPS_PROXY = "http://127.0.0.1:7890"; .\run.bat`）
 - **测试方式**：`rg -n "un\.bat" README.md` 确认不再出现断行；示例命令经人工核对与 CMD/Linux 示例对齐
 - **可能影响的模块**：仅 README 文档；不影响任何代码
+
+
+---
+
+## Bug #7：Beta 自动计算接口必然 500（Map.of 不允许 null 值）（用户实测发现）
+
+- **状态**：已修复（2026-08-25 20:05）
+- **原因**：`ApiController.beta()` 用 `Map.of("beta", ...)` 构造响应，而 `Map.of` 不允许任何 key/value 为 null：
+  - 成功路径 `Map.of("beta", Double.isNaN(b) ? null : b)`：当 `fetchBeta` 返回 NaN（东财 K 线请求失败或周线样本 < 30 条）时，null 值直接触发 `NullPointerException`；
+  - 异常路径 `Map.of("beta", null, "error", e.getMessage())`：beta=null 必抛 NPE；若 `e.getMessage()` 也为 null 同样 NPE。
+  - 结果：只要 Beta「没算出有效值」，接口就 500，前端 JS（common.js `fetchBeta`）只能走 `.catch` 显示笼统的"Beta 计算失败，请手动输入"，看不到真实原因。
+  - 同日实测：东财 K 线接口网络超时（日志 `HTTP/1.1 header parser received no bytes`）触发该路径；`/api/rf` 接口存在完全相同隐患（中债登/FRED 失败返回 NaN 时也会 500，US 端此前可能已经踩过）。
+- **修改位置**：`src/main/java/com/dcf/web/ApiController.java`
+  - `beta()`：改用 `java.util.HashMap` 构造响应（允许 null）；NaN 时返回 `beta=null + error="数据不足（近 3 年周线样本少于 30 条或接口未返回数据）"`；异常时 error 兜底默认文案（`e.getMessage()` 为 null 时不崩溃）
+  - `rf()`：同样改用 HashMap，消除同类 NPE 隐患
+  - 前端 `common.js`/`params.html` 无需改动：响应结构（beta/rate/error/source 字段）保持不变，失败时现在能显示具体原因
+- **测试方式**：
+  - `mvnw test` 全量通过（无回归）
+  - 冒烟：`GET /api/beta?code=600519` → 200 + `{"beta":0.985}`（成功路径）；`GET /api/rf?market=US`（FRED 超时场景）→ 200 + `{"source":"FRED DGS10..."}`（NaN 失败路径不再 500，修复前此场景必 500）
+- **可能影响的模块**：参数页「Beta 自动算」按钮、无风险利率自动获取按钮（/api/beta、/api/rf 两个 JSON 接口）；不涉及估值计算、导出与报告逻辑
+- **教训**：Spring MVC 返回 Map 时若字段可能为 null（"可选值 + 错误信息"模式），必须用允许 null 的 Map 实现（HashMap），不能用 `Map.of`/`Map.ofEntries`。
