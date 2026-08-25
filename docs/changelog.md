@@ -153,3 +153,30 @@
   - `README.md`：新增「Docker 部署（免装 JDK）」「部署到公网」两节（PaaS / 云服务器 / 内网穿透三方案，含数据源限流提示）
 - **测试方式**：本地 `mvn test` 全量 50 个用例通过；push 后观察 GitHub Actions 状态（build-and-test 变绿）。
 - **可能影响的模块**：工程流程（CI 不参与运行时代码）；Docker 镜像构建产物。
+
+---
+
+## 变更 #8：中国 10Y 自动获取恢复（中债登，2026-08-25 晚）
+
+- **原因**：v1.1.0 发版前实测东财/新浪/中债登 downYearBzqx/中国货币网免费接口全部失效或需登录，CN 曾降级为「手动输入（默认 1.7%）」。
+  发版后复查发现中债登**另一接口** `historyQuery`（国债及其他债券收益率曲线，网页版历史查询入口）恢复可用且免登录：
+  实测 2026-08-25 返回 2026-08-24 数据，中国 10Y = 1.6794%。故把自动获取接回，同时保留手动兜底。
+- **修改位置**：
+  - `src/main/java/com/dcf/data/RateFetcher.java`：
+    - `fetchCn10y()` 由「直接返回 NaN」改为调用中债登 `historyQuery` 并解析 HTML 表格（`parseChinabond10y`，取「中债国债收益率曲线」行 10 年列，最新行为空则向前取上一交易日）
+    - 新增宽松 TLS 处理：中债登证书链由国内 CA 签发、不在 JDK cacerts，严格校验会 PKIX 失败；仅对该主机放宽（FRED 仍严格校验），并限定 HostnameVerifier
+    - 新增 24h 缓存（与 US 共用 cacheTime）；`sourceLabel("CN")` 更新为「中债登（中债国债收益率曲线 10Y，日频）」
+  - `src/main/java/com/dcf/web/ApiController.java`：`/api/rf` 注释更新（CN 由「不可用」改为「中债登历史查询」）
+  - `src/main/resources/templates/params.html`：`fetchRf()` 移除「CN 直接提示手动输入」分支，CN/US 统一走 `/api/rf`；成功填充并显示来源，失败才提示手动输入；rfHint 文案同步更新
+  - `src/test/java/com/dcf/data/RateFetcherTest.java`：重写为 5 个用例（解析最新行 / 空值回退上一交易日 / 找不到目标曲线抛异常 / 兜底常量 / 来源标注）
+  - `src/test/java/com/dcf/data/LiveApiSmokeTest.java`：`fetchFredUs10y` 改为 `fetchRfUsAndCn`（US + CN 双源冒烟，默认 @Disabled）
+  - `README.md`：数据来源节补充 10Y 来源；版本号 1.0.0 → 1.1.0；「部署到公网」节改写为面向访客的正式说明
+- **测试方式**：
+  - 单元：`mvn test` 全量 54 个用例通过（含 RateFetcherTest 5 个新用例，解析用真实页面结构精简样本）
+  - 联网：`jshell` 直接调用 `RateFetcher.fetchCn10y()` 实测返回 0.016794（1.6794%，与 2026-08-24 中债登官网一致）
+  - 手工：参数页点「自动获取」应填入 1.68 并显示来源；断网/接口变更时应提示手动输入
+- **可能影响的模块**：参数页 Rf 输入（CN 由手动改自动）、CAPM/WACC 计算链路（Rf 自动取值）、报告/Excel 中 Rf 来源标注；FRED（US）逻辑不变。
+- **已知限制**：
+  - 中债登查询窗口上限 1 年，本实现取最近 30 天，日频足够
+  - 中债登 SSL 证书链不在 JDK 默认信任库，需宽松 TLS（仅限该公开数据源，不传输敏感信息）
+  - FRED（境外）在当前网络实测超时，失败时前端提示手动输入（兜底逻辑保留）

@@ -106,12 +106,13 @@ DCF-Valuation-Tool/
 ## 数据来源与免责声明
 
 - A 股财报：新浪财经公开接口；行情/股本：东方财富公开接口（接口字段可能变动，解析层已集中隔离，失败会给出中文提示并可转手动输入）
+- 无风险利率：美股用 FRED DGS10（10Y 美国国债），A 股用中债登「中债国债收益率曲线」10 年列，参数页可一键自动获取或手动覆盖
 - 理杏仁 CSV 为可选兜底数据源，需自行保证数据准确性
 - 本项目仅供学习与研究，**不构成任何投资建议**；估值结果受假设参数影响极大，请谨慎参考
 
 ## 分支与 Roadmap
 
-- `main`：Java 版（当前版本 v1.0.0）
+- `main`：Java 版（当前版本 v1.1.0）
 - `python-prototype`：Python/Streamlit 原型（后续计划按此架构重做 Python 版，两版本并行维护）
 
 ## Docker 部署（免装 JDK）
@@ -125,13 +126,14 @@ docker run -p 8501:8501 -v "$(pwd)/data:/app/data" dcf-valuation-tool
 
 ## 部署到公网（让别人直接访问）
 
-本项目是本地 Web 应用，`localhost` 只在本机有效。若希望**不装环境直接访问**：
+本项目是本地 Web 应用，默认只能在部署它的机器上通过 `localhost` 访问。
+若要发布到公网、让别人**不装环境直接使用**，可按以下任一方式部署：
 
-- **免费 PaaS**：把本仓库部署到 Railway / Render / Fly.io（Dockerfile 已就绪），
-  构建后即得公网地址，适合演示与试用
-- **云服务器**：`java -jar target/dcf-valuation-tool-1.0.0.jar`（需 JDK 21），
-  用 Nginx/Caddy 反向代理 + 域名（HTTPS）
-- **内网穿透**：ngrok / frp 仅适合临时演示，不建议长期公开
+- **免费 PaaS（最省事）**：把本仓库部署到 Railway / Render / Fly.io（仓库已内置 Dockerfile），
+  构建后即可获得公网地址，适合演示与试用
+- **云服务器**：在服务器（需 JDK 21）上运行 `java -jar target/dcf-valuation-tool-1.1.0.jar`，
+  再用 Nginx / Caddy 反向代理并绑定域名（HTTPS）
+- **内网穿透**：ngrok / frp 适合临时演示，不建议长期公开使用
 
 > 数据源（新浪/东财）对境外服务器可能限流，公网部署建议选国内节点（如腾讯云/阿里云轻量服务器）。
 

@@ -39,7 +39,7 @@ public class ApiController {
 
     /**
      * 自动获取无风险利率（10 年期国债收益率）。
-     * US：FRED DGS10；CN：免费接口不可用返回 null（由页面提示手动输入）。
+     * US：FRED DGS10；CN：中债登历史查询；失败返回 null（由页面提示手动输入）。
      */
     @GetMapping("/api/rf")
     public Map<String, Object> rf(@RequestParam String market) {

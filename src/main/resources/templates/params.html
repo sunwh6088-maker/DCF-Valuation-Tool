@@ -68,7 +68,7 @@
                                    th:value="${#numbers.formatDecimal(ctx.rf * 100, 1, 2)}" oninput="updateWacc()">
                             <button class="btn btn-outline-primary" type="button" id="rfBtn" onclick="fetchRf()">自动获取</button>
                         </div>
-                        <div class="form-text" id="rfHint">10 年期国债：CN≈1.7% / US≈4.3%（FRED 自动）</div>
+                        <div class="form-text" id="rfHint">10 年期国债：CN≈1.7% / US≈4.3%（可点右侧按钮自动获取，也可手动输入）</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Beta</label>
@@ -167,27 +167,24 @@
     function fetchRf() {
         var btn = document.getElementById('rfBtn');
         var hint = document.getElementById('rfHint');
-        if (market !== 'US') {
-            hint.textContent = '中国 10Y 免费接口暂不可用，请手动输入（默认 1.7%，可从理杏仁/中债官网查询）';
-            return;
-        }
         btn.disabled = true;
-        hint.textContent = '获取中（FRED DGS10）...';
+        hint.textContent = '获取中（' + (market === 'US' ? 'FRED DGS10' : '中债登') + '）...';
         fetch('/api/rf?market=' + encodeURIComponent(market))
             .then(r => r.json())
             .then(data => {
                 btn.disabled = false;
                 if (data.rate != null) {
                     document.getElementById('rf').value = (data.rate * 100).toFixed(2);
-                    hint.textContent = '已获取 FRED DGS10 = ' + (data.rate * 100).toFixed(2) + '%（可覆盖）';
+                    hint.textContent = '已自动获取 ' + (data.rate * 100).toFixed(2)
+                        + '%（来源：' + (data.source || '') + '，可手动覆盖）';
                 } else {
-                    hint.textContent = '获取失败：' + (data.source || '请手动输入');
+                    hint.textContent = '自动获取失败，请手动输入（' + (data.source || '') + '）';
                 }
                 updateWacc();
             })
             .catch(e => {
                 btn.disabled = false;
-                hint.textContent = '获取失败，请手动输入';
+                hint.textContent = '自动获取失败，请手动输入';
             });
     }
     var mvMarketCap = /*[[${ctx.company.snapshot.price * ctx.company.snapshot.sharesOutstanding}]]*/ 0;

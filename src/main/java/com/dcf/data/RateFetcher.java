@@ -7,7 +7,17 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * 无风险利率自动获取器。
@@ -15,9 +25,9 @@ import java.time.format.DateTimeFormatter;
  * <ul>
  *   <li>美股（US）：FRED DGS10（10 年期美国国债，日频，免费无 Key）——
  *       https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10</li>
- *   <li>中国（CN）：截至 v1.1 实测东财/新浪/中债登/中国货币网免费接口均不可用
- *       （东财 reportName 已下线、新浪 globalbd 返回空、中债登 xlsx 需登录），
- *       故 CN 返回 {@link #NOT_AVAILABLE}，由页面提示手动输入默认值。</li>
+ *   <li>中国（CN）：中债登「国债及其他债券收益率曲线」历史查询（日频，免费无登录）——
+ *       https://yield.chinabond.com.cn/cbweb-pbc-web/pbc/historyQuery
+ *       解析「中债国债收益率曲线」行的 10 年列；失败返回 {@link #NOT_AVAILABLE}，由页面提示手动输入。</li>
  * </ul>
  *
  * <p>结果缓存 24 小时，避免频繁请求外部接口。
@@ -33,7 +43,23 @@ public class RateFetcher {
     private static final String FRED_DGS10_URL =
             "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10";
 
+    private static final String CHINABOND_HISTORY_URL =
+            "https://yield.chinabond.com.cn/cbweb-pbc-web/pbc/historyQuery";
+
+    /** 中债登查询窗口上限（接口要求 end-start < 1 年），取最近 30 天足够。 */
+    private static final int CN_QUERY_DAYS = 30;
+
+    /** 「10年」列在曲线数据行中的下标：曲线名称/日期/3月/6月/1年/3年/5年/7年/10年/30年。 */
+    private static final int CN_COL_10Y = 8;
+
+    /** 目标曲线行首列匹配词（排除“中债商业银行普通债/中短期票据”等行）。 */
+    private static final String CN_TARGET_CURVE = "中债国债收益率曲线";
+
+    private static final Pattern TR_PATTERN = Pattern.compile("<tr[^>]*>(.*?)</tr>", Pattern.DOTALL);
+    private static final Pattern TD_PATTERN = Pattern.compile("<t[dh][^>]*>(.*?)</t[dh]>", Pattern.DOTALL);
+
     private Double cachedUs10y;
+    private Double cachedCn10y;
     private LocalDateTime cacheTime;
 
     /** 获取美国 10 年期国债收益率（小数，如 0.0474）；失败返回 {@link #NOT_AVAILABLE}。 */
@@ -52,41 +78,89 @@ public class RateFetcher {
         }
     }
 
-    /** 获取中国 10 年期国债收益率；当前免费源不可用，返回 {@link #NOT_AVAILABLE}。 */
-    public double fetchCn10y() {
-        return NOT_AVAILABLE;
+    /**
+     * 获取中国 10 年期国债收益率（小数，如 0.0168）；失败返回 {@link #NOT_AVAILABLE}。
+     * 数据源：中债登历史查询（免登录），解析「中债国债收益率曲线」最新一行的 10 年列。
+     */
+    public synchronized double fetchCn10y() {
+        if (cachedCn10y != null && cacheTime != null
+                && cacheTime.isAfter(LocalDateTime.now().minusHours(24))) {
+            return cachedCn10y;
+        }
+        try {
+            LocalDate end = LocalDate.now();
+            LocalDate start = end.minusDays(CN_QUERY_DAYS);
+            String url = CHINABOND_HISTORY_URL
+                    + "?startDate=" + start + "&endDate=" + end
+                    + "&gjqx=0&qxId=ycqx&locale=cn_ZH";
+            String html = fetchText(url);
+            double value = parseChinabond10y(html);
+            cachedCn10y = value;
+            cacheTime = LocalDateTime.now();
+            return value;
+        } catch (Exception e) {
+            return NOT_AVAILABLE;
+        }
     }
 
-    /** 按市场获取：US→FRED；CN→不可用（回退默认）。 */
+    /** 按市场获取：US→FRED；CN→中债登（失败回退默认手动）。 */
     public double fetch(String market) {
         return "US".equalsIgnoreCase(market) ? fetchUs10y() : fetchCn10y();
     }
 
+    /**
+     * 解析中债登 historyQuery 返回的 HTML 表格，取「中债国债收益率曲线」最新一行的 10 年列。
+     * 包私有，便于单元测试。
+     *
+     * @param html UTF-8 编码的查询结果页面
+     * @return 收益率（小数，如 0.016794）
+     */
+    static double parseChinabond10y(String html) {
+        Matcher trMatcher = TR_PATTERN.matcher(html);
+        while (trMatcher.find()) {
+            List<String> cells = extractCells(trMatcher.group(1));
+            if (cells.size() <= CN_COL_10Y || !cells.get(0).startsWith(CN_TARGET_CURVE)) {
+                continue;
+            }
+            String value = cells.get(CN_COL_10Y);
+            if (value.isEmpty()) {
+                continue; // 最新一行 10 年可能暂无值，继续向前找上一交易日
+            }
+            return Double.parseDouble(value) / 100.0;
+        }
+        throw new IllegalStateException("中债登 HTML 中未找到目标曲线数据");
+    }
+
+    /** 提取一行 <tr> 内的所有 <td>/<th> 单元格文本（去标签、去空白）。 */
+    private static List<String> extractCells(String trBody) {
+        List<String> cells = new ArrayList<>();
+        Matcher tdMatcher = TD_PATTERN.matcher(trBody);
+        while (tdMatcher.find()) {
+            String text = tdMatcher.group(1)
+                    .replaceAll("<[^>]+>", "")
+                    .replace("&nbsp;", " ")
+                    .trim();
+            cells.add(text);
+        }
+        return cells;
+    }
+
     /** 从 FRED CSV 中取最后一行非空值。 */
     private static double fetchFredLatest(String url) throws Exception {
-        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
-        conn.setRequestProperty("User-Agent", "DCF-Valuation-Tool/1.1");
+        String csv = fetchText(url);
         double last = NOT_AVAILABLE;
-        try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.isBlank() || line.startsWith("DATE")) {
-                    continue;
-                }
-                String[] parts = line.split(",");
-                if (parts.length >= 2 && !parts[1].isBlank()) {
-                    try {
-                        last = Double.parseDouble(parts[1].trim()) / 100.0;
-                    } catch (NumberFormatException ignore) {
-                        // 跳过缺失值行（如 "."）
-                    }
+        for (String line : csv.split("\r?\n")) {
+            if (line.isBlank() || line.startsWith("DATE")) {
+                continue;
+            }
+            String[] parts = line.split(",");
+            if (parts.length >= 2 && !parts[1].isBlank()) {
+                try {
+                    last = Double.parseDouble(parts[1].trim()) / 100.0;
+                } catch (NumberFormatException ignore) {
+                    // 跳过缺失值行（如 "."）
                 }
             }
-        } finally {
-            conn.disconnect();
         }
         if (Double.isNaN(last)) {
             throw new IllegalStateException("FRED 数据为空");
@@ -94,10 +168,72 @@ public class RateFetcher {
         return last;
     }
 
+    /** 通用 GET 文本获取（15s 超时，UTF-8 解码）。 */
+    private static String fetchText(String url) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(15000);
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) DCF-Valuation-Tool/1.1");
+        if (url.startsWith(CHINABOND_HISTORY_URL)) {
+            // 中债登证书由国内 CA 签发，不在 JDK 默认信任库（cacerts），需宽松 TLS 才能访问；
+            // 仅用于读取公开国债收益率，不涉及用户敏感信息；FRED 仍走严格校验。
+            HttpsURLConnection https = (HttpsURLConnection) conn;
+            https.setSSLSocketFactory(looseSslContext().getSocketFactory());
+            https.setHostnameVerifier(LOOSE_HOSTNAME_VERIFIER);
+        }
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append('\n');
+            }
+            return sb.toString();
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    /** 仅校验主机名与内置名单一致的宽松校验器（只用于中债登）。 */
+    private static final HostnameVerifier LOOSE_HOSTNAME_VERIFIER = (hostname, session) -> {
+        try {
+            return hostname.equalsIgnoreCase(URI.create(CHINABOND_HISTORY_URL).getHost());
+        } catch (Exception e) {
+            return false;
+        }
+    };
+
+    /**
+     * 宽松 TLS 上下文：信任任意证书链（仅中债登使用）。
+     * 原因：中债登 SSL 证书链（国内 CA）不在 JDK cacerts 中，严格校验会 PKIX 失败；
+     * 该接口仅返回公开的国债收益率行情，不传输任何敏感数据。
+     */
+    private static SSLContext looseSslContext() throws Exception {
+        TrustManager[] trustAll = new TrustManager[]{
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] chain, String authType) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) {
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                }
+        };
+        SSLContext sc = SSLContext.getInstance("TLS");
+        sc.init(null, trustAll, new SecureRandom());
+        return sc;
+    }
+
     /** 数据来源描述（报告/页面标注用）。 */
     public static String sourceLabel(String market) {
         return "US".equalsIgnoreCase(market)
                 ? "FRED DGS10（10Y 美国国债，日频）"
-                : "未获取（免费接口不可用，请手动输入，默认 1.7%）";
+                : "中债登（中债国债收益率曲线 10Y，日频）";
     }
 }

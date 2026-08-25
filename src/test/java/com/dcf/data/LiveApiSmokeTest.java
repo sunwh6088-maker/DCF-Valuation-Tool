@@ -37,11 +37,13 @@ class LiveApiSmokeTest {
 
     @Disabled("真实接口冒烟测试，需网络；手动去掉 @Disabled 后运行 mvn test -Dtest=LiveApiSmokeTest")
     @Test
-    void fetchFredUs10y() {
+    void fetchRfUsAndCn() {
         RateFetcher fetcher = new RateFetcher();
-        double rf = fetcher.fetchUs10y();
-        System.out.println("US 10Y = " + rf);
-        assertTrue(rf > 0.01 && rf < 0.08, "美国 10Y 应在 1%-8% 区间，实际 " + rf);
-        assertTrue(Double.isNaN(fetcher.fetchCn10y()), "CN 免费源不可用，应返回 NaN");
+        double us = fetcher.fetchUs10y();
+        System.out.println("US 10Y = " + us);
+        assertTrue(us > 0.01 && us < 0.08, "美国 10Y 应在 1%-8% 区间，实际 " + us);
+        double cn = fetcher.fetchCn10y();
+        System.out.println("CN 10Y = " + cn);
+        assertTrue(cn > 0.005 && cn < 0.05, "中国 10Y 应在 0.5%-5% 区间，实际 " + cn);
     }
 }
