@@ -66,7 +66,7 @@ if /i "%~1"=="jar" (
 set "DEV_ARGS="
 if not "%PORT_ARG%"=="" set "DEV_ARGS=-Dspring-boot.run.arguments=%PORT_ARG%"
 
-set "JAR=target\dcf-valuation-tool-1.1.3.jar"
+set "JAR=target\dcf-valuation-tool-1.1.4.jar"
 
 if /i "%~1"=="jar" goto :run_jar
 
@@ -87,3 +87,4 @@ if not exist "%JAR%" (
 )
 java %PROXY_ARGS% -jar "%JAR%" %PORT_ARG%
 goto :eof
+
