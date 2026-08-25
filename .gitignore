@@ -18,3 +18,8 @@ outputs/
 # 系统文件
 Thumbs.db
 .DS_Store
+
+# Java / Maven
+target/
+*.class
+.mvn/wrapper/maven-wrapper.jar

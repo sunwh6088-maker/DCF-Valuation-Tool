@@ -1,0 +1,12 @@
+server:
+  port: 8501
+
+spring:
+  application:
+    name: dcf-valuation-tool
+  thymeleaf:
+    cache: false
+    encoding: UTF-8
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null

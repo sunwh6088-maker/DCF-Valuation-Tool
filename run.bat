@@ -1,8 +1,6 @@
 @echo off
 cd /d %~dp0
-if not exist .venv\Scripts\python.exe (
-    echo [ERROR] 未找到虚拟环境，请先运行: python -m venv .venv
-    pause
-    exit /b 1
+if not exist target\dcf-valuation-tool-1.0.0.jar (
+    echo [INFO] 首次启动请先编译: mvn package -DskipTests
 )
-.venv\Scripts\python.exe -m streamlit run app.py
+mvn spring-boot:run
