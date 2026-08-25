@@ -3,11 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>DCF 估值工具（Java 版）</title>
+    <title>DCF 估值工具</title>
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
-<h1>DCF 估值工具（Java 版）</h1>
-<p>两阶段自由现金流折现模型 · A股自动抓取 + 美股手动输入 + 敏感性分析</p>
-<p>页面开发中（J4 完成），当前为骨架验证页面。</p>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container">
+        <span class="navbar-brand">DCF 估值工具</span>
+        <span class="text-secondary small">两阶段自由现金流折现 · Java 版 v1.0</span>
+    </div>
+</nav>
+
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="display-6">股票内在价值估值</h1>
+        <p class="text-muted">历史自由现金流 → 预测 10 年 → 折现 → 每股内在价值 vs 当前股价 → 敏感性分析</p>
+    </div>
+    <div class="row justify-content-center g-4">
+        <div class="col-md-5">
+            <a href="/input/a" class="card card-hover p-4 h-100 text-decoration-none text-dark">
+                <h4>🇨🇳 A 股</h4>
+                <p class="mb-1">自动抓取（新浪/东财）</p>
+                <p class="mb-1">理杏仁 CSV 导入</p>
+                <p class="mb-0">手动输入</p>
+            </a>
+        </div>
+        <div class="col-md-5">
+            <a href="/input/us" class="card card-hover p-4 h-100 text-decoration-none text-dark">
+                <h4>🇺🇸 美股</h4>
+                <p class="mb-1">按清单手动输入历史财务</p>
+                <p class="mb-1">自动计算 CAPM 折现率</p>
+                <p class="mb-0">敏感性热力图 + 报告导出</p>
+            </a>
+        </div>
+    </div>
+    <p class="text-center text-muted mt-5 small">数据仅供学习研究，不构成投资建议 · 源码：github.com/sunwh6088-maker/DCF-Valuation-Tool</p>
+</div>
 </body>
 </html>

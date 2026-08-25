@@ -1,0 +1,91 @@
+package com.dcf.web;
+
+import com.dcf.data.model.CompanyData;
+import com.dcf.model.SensitivityResult;
+import com.dcf.model.ValuationResult;
+
+/**
+ * 估值会话上下文（存于 HttpSession）。
+ *
+ * <p>贯穿整个估值流程：数据 → 参数 → 结果。
+ * 页面之间通过它传递状态，避免重复抓取数据。
+ */
+public class ValuationContext {
+
+    /** 公司数据（自动抓取 / CSV / 手动组装）。 */
+    private CompanyData company;
+
+    /** 自动计算的 Beta（可能为 NaN，表示数据不足需手填）。 */
+    private Double beta;
+
+    // ---- 估值参数（params 页表单） ----
+    private double rf = 0.017;            // 无风险利率（默认中国 10Y）
+    private double betaInput = 1.0;       // Beta（自动填充或手动）
+    private double erp = 0.055;           // 市场风险溢价
+    private boolean useCapm = true;       // true=折现率用 CAPM 结果；false=手动指定
+    private double manualDiscountRate = 0.10; // 手动折现率
+    private double taxRate = 0.25;        // 有效税率
+    private double gFirst = 0.08;         // 高增长期增长率
+    private int nFirst = 5;               // 高增长年数
+    private int nTransition = 5;          // 过渡年数
+    private double gTerminal = 0.025;     // 永续增长率
+
+    // ---- 计算结果 ----
+    private ValuationResult result;
+    private SensitivityResult sensitivity;
+    private String errorMessage;
+
+    // ---- 便捷访问 ----
+    public String market() {
+        return company == null ? "CN" : company.market();
+    }
+
+    public boolean hasCompany() {
+        return company != null;
+    }
+
+    public CompanyData getCompany() { return company; }
+    public void setCompany(CompanyData company) { this.company = company; }
+
+    public Double getBeta() { return beta; }
+    public void setBeta(Double beta) { this.beta = beta; }
+
+    public double getRf() { return rf; }
+    public void setRf(double rf) { this.rf = rf; }
+
+    public double getBetaInput() { return betaInput; }
+    public void setBetaInput(double betaInput) { this.betaInput = betaInput; }
+
+    public double getErp() { return erp; }
+    public void setErp(double erp) { this.erp = erp; }
+
+    public boolean isUseCapm() { return useCapm; }
+    public void setUseCapm(boolean useCapm) { this.useCapm = useCapm; }
+
+    public double getManualDiscountRate() { return manualDiscountRate; }
+    public void setManualDiscountRate(double manualDiscountRate) { this.manualDiscountRate = manualDiscountRate; }
+
+    public double getTaxRate() { return taxRate; }
+    public void setTaxRate(double taxRate) { this.taxRate = taxRate; }
+
+    public double getGFirst() { return gFirst; }
+    public void setGFirst(double gFirst) { this.gFirst = gFirst; }
+
+    public int getNFirst() { return nFirst; }
+    public void setNFirst(int nFirst) { this.nFirst = nFirst; }
+
+    public int getNTransition() { return nTransition; }
+    public void setNTransition(int nTransition) { this.nTransition = nTransition; }
+
+    public double getGTerminal() { return gTerminal; }
+    public void setGTerminal(double gTerminal) { this.gTerminal = gTerminal; }
+
+    public ValuationResult getResult() { return result; }
+    public void setResult(ValuationResult result) { this.result = result; }
+
+    public SensitivityResult getSensitivity() { return sensitivity; }
+    public void setSensitivity(SensitivityResult sensitivity) { this.sensitivity = sensitivity; }
+
+    public String getErrorMessage() { return errorMessage; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+}

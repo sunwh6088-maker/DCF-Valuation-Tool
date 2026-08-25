@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>A股数据输入 - DCF 估值工具</title>
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">← DCF 估值工具</a>
+        <span class="text-secondary small">A 股 · 数据输入</span>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <h4 class="mb-1">A 股数据输入</h4>
+    <p class="text-muted">三种方式任选其一：自动抓取（推荐）→ 理杏仁 CSV → 手动输入</p>
+
+    <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+    <ul class="nav nav-tabs mt-3" id="modeTab" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabAuto" type="button">① 自动抓取</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCsv" type="button">② 理杏仁 CSV</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabManual" type="button">③ 手动输入</button></li>
+    </ul>
+
+    <div class="tab-content py-4">
+        <!-- ① 自动抓取 -->
+        <div class="tab-pane fade show active" id="tabAuto">
+            <div class="card p-4">
+                <h6>自动抓取（新浪财报 + 东财行情）</h6>
+                <form method="post" action="/input/a/auto" class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">股票代码</label>
+                        <input class="form-control" name="code" required pattern="[0-9]{6}"
+                               placeholder="如 600519" autocomplete="off">
+                        <div class="form-text">6 位数字，支持 sh/sz 前缀与全角字符</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">历史年数</label>
+                        <select class="form-select" name="years">
+                            <option value="10" selected>10 年（推荐）</option>
+                            <option value="8">8 年</option>
+                            <option value="5">5 年</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary px-4" type="submit">抓取并下一步</button>
+                    </div>
+                </form>
+                <div class="alert alert-light border mt-3 mb-0 help-text">
+                    抓取内容：10 年经营现金流 / 资本开支 / 营收 / EBIT / 税率数据（新浪），
+                    当前股价 / 总股本 / 有息负债 / 少数股东权益（东财）。Beta 将在参数页自动计算。
+                </div>
+            </div>
+        </div>
+
+        <!-- ② CSV 导入 -->
+        <div class="tab-pane fade" id="tabCsv">
+            <div class="card p-4">
+                <h6>理杏仁 CSV / 标准模板导入</h6>
+                <p class="help-text mb-3">
+                    可下载标准模板填写，或直接上传理杏仁导出的 CSV（自动识别中文科目列）。
+                    历史数据来自 CSV；以下快照字段（股价/股本/负债）需手动补充。
+                </p>
+                <form method="post" action="/input/a/csv" enctype="multipart/form-data" class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">CSV 文件</label>
+                        <input class="form-control" type="file" name="file" accept=".csv" required>
+                    </div>
+                    <div class="col-12"><hr></div>
+                    <div class="col-md-4">
+                        <label class="form-label">公司名称</label>
+                        <input class="form-control" name="name" required placeholder="贵州茅台">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">代码</label>
+                        <input class="form-control" name="code" required pattern="[0-9]{6}" placeholder="600519">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">当前股价（元）</label>
+                        <input class="form-control" name="price" type="number" step="0.01" min="0" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">总股本（股）</label>
+                        <input class="form-control" name="shares" type="number" step="any" min="0" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">货币资金（元）</label>
+                        <input class="form-control" name="cash" type="number" step="any" value="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">有息负债（元）</label>
+                        <input class="form-control" name="interestDebt" type="number" step="any" value="0">
+                        <div class="form-text">短借+长借+应付债券+一年内到期+租赁负债</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">少数股东权益（元）</label>
+                        <input class="form-control" name="minority" type="number" step="any" value="0">
+                    </div>
+                    <div class="col-12">
+                        <a class="btn btn-outline-primary btn-sm" href="/api/template">下载标准 CSV 模板</a>
+                        <button class="btn btn-primary px-4" type="submit">导入并下一步</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ③ 手动输入 -->
+        <div class="tab-pane fade" id="tabManual">
+            <div class="card p-4">
+                <h6>手动输入历史财务（A 股）</h6>
+                <p class="help-text">至少 3 年，建议 5-10 年；金额单位：元。营收/EBIT/税前利润/所得税可选填（用于增长参考与税率）。</p>
+                <form method="post" action="/input/manual" class="g-3">
+                    <input type="hidden" name="market" value="CN">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3"><label class="form-label">公司名称</label><input class="form-control" name="name" required placeholder="贵州茅台"></div>
+                        <div class="col-md-2"><label class="form-label">代码</label><input class="form-control" name="code" required pattern="[0-9]{6}" placeholder="600519"></div>
+                        <div class="col-md-2"><label class="form-label">当前股价（元）</label><input class="form-control" name="price" type="number" step="0.01" min="0" required></div>
+                        <div class="col-md-2"><label class="form-label">总股本（股）</label><input class="form-control" name="shares" type="number" step="any" min="0" required></div>
+                        <div class="col-md-3"><label class="form-label">净债务（有息负债-现金，元）</label><input class="form-control" name="interestDebt" type="number" step="any" value="0"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle" id="manualTable">
+                            <thead class="table-light">
+                            <tr>
+                                <th>年份*</th><th>经营现金流*</th><th>资本开支*</th>
+                                <th>营收</th><th>EBIT(营业利润)</th><th>税前利润</th><th>所得税</th><th></th>
+                            </tr>
+                            </thead>
+                            <tbody id="manualRows"></tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">+ 添加一年</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow()">- 删除末行</button>
+                        <button class="btn btn-primary px-4" type="submit">下一步（参数）</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/vendor/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/js/common.js}"></script>
+<script>initManualRows(5);</script>
+</body>
+</html>

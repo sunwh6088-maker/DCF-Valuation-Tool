@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>估值结果 - DCF 估值工具</title>
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">← DCF 估值工具</a>
+        <span class="text-secondary small">估值结果</span>
+    </div>
+</nav>
+
+<div class="container py-4" th:with="ps=${ctx.result.perShareValue}, price=${ctx.company.snapshot.price},
+        margin=${(ctx.result.perShareValue - ctx.company.snapshot.price) / ctx.company.snapshot.price}">
+    <!-- 核心结论 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card p-4 text-center h-100">
+                <div class="metric-label">每股内在价值</div>
+                <div class="big-number text-primary" th:text="${#numbers.formatDecimal(ps, 1, 2)}"></div>
+                <div class="metric-label" th:text="'折现率口径：' + ${ctx.useCapm} ? 'CAPM' : '手动指定'"></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4 text-center h-100">
+                <div class="metric-label">当前股价</div>
+                <div class="big-number" th:text="${#numbers.formatDecimal(price, 1, 2)}"></div>
+                <div class="metric-label" th:text="${ctx.company.snapshot.name} + ' (' + ${ctx.company.code} + ')'"></div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card p-4 text-center h-100">
+                <div class="metric-label">安全边际</div>
+                <div class="big-number" th:classappend="${margin >= 0 ? 'text-success' : 'text-danger'}"
+                     th:text="${#numbers.formatDecimal(margin * 100, 1, 1)} + '%'"></div>
+                <span class="badge text-bg-success fs-6" th:if="${margin >= 0}">低估 · 值得关注</span>
+                <span class="badge text-bg-danger fs-6" th:if="${margin < 0}">高估 · 谨慎</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 终值占比警告 -->
+    <div class="alert alert-warning" th:if="${ctx.result.terminalRatio > 0.8}">
+        ⚠️ 终值现值占企业价值 <b th:text="${#numbers.formatDecimal(ctx.result.terminalRatio * 100, 1, 1)} + '%'"></b>
+        （>80%）：估值高度依赖永续增长假设，请结合敏感性矩阵谨慎判断。
+    </div>
+
+    <!-- 图表 -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-7">
+            <div class="card p-3">
+                <h6>敏感性热力图（每股内在价值：折现率 × 永续增长率）</h6>
+                <div id="sensitivity-chart"></div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card p-3">
+                <h6>自由现金流：历史 + 预测（显式期）</h6>
+                <div id="fcf-chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 估值拆分 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card p-4">
+                <h6>估值拆分（金额：元）</h6>
+                <table class="table table-sm mb-0">
+                    <tr><td class="text-muted">显式期现值</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.result.pvFcf, 0, 0)}"></td></tr>
+                    <tr><td class="text-muted">终值现值</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.result.pvTerminal, 0, 0)}"></td></tr>
+                    <tr><td class="text-muted">终值占比</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.result.terminalRatio * 100, 1, 1)} + '%'"></td></tr>
+                    <tr class="table-light"><td><b>企业价值 EV</b></td><td class="text-end"><b th:text="${#numbers.formatDecimal(ctx.result.enterpriseValue, 0, 0)}"></b></td></tr>
+                    <tr><td class="text-muted">− 净债务</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.company.snapshot.netDebt(), 0, 0)}"></td></tr>
+                    <tr><td class="text-muted">− 少数股东权益</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.company.snapshot.minorityInterest, 0, 0)}"></td></tr>
+                    <tr class="table-light"><td><b>股权价值</b></td><td class="text-end"><b th:text="${#numbers.formatDecimal(ctx.result.equityValue, 0, 0)}"></b></td></tr>
+                    <tr class="table-light"><td><b>÷ 总股本</b></td><td class="text-end"><b th:text="${#numbers.formatDecimal(ctx.company.snapshot.sharesOutstanding, 0, 0)}"></b></td></tr>
+                    <tr class="table-primary"><td><b>每股内在价值</b></td><td class="text-end"><b th:text="${#numbers.formatDecimal(ps, 1, 2)}"></b></td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card p-4">
+                <h6>使用的假设</h6>
+                <table class="table table-sm mb-0">
+                    <tr><td class="text-muted">无风险利率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.rf * 100, 2, 2)} + '%'"></td></tr>
+                    <tr><td class="text-muted">Beta</td><td class="text-end" th:text="${ctx.betaInput}"></td></tr>
+                    <tr><td class="text-muted">市场风险溢价</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.erp * 100, 2, 1)} + '%'"></td></tr>
+                    <tr><td class="text-muted">折现率</td><td class="text-end" th:text="${ctx.useCapm} ? ${#numbers.formatDecimal(ctx.rf + ctx.betaInput * ctx.erp, 2, 2)} + '% (CAPM)' : ${#numbers.formatDecimal(ctx.manualDiscountRate * 100, 2, 2)} + '% (手动)'"></td></tr>
+                    <tr><td class="text-muted">有效税率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.taxRate * 100, 2, 1)} + '%'"></td></tr>
+                    <tr><td class="text-muted">高增长期增长率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.gFirst * 100, 2, 2)} + '% × ' + ${ctx.nFirst} + ' 年'"></td></tr>
+                    <tr><td class="text-muted">过渡期</td><td class="text-end" th:text="${ctx.nTransition} + ' 年线性过渡'"></td></tr>
+                    <tr><td class="text-muted">永续增长率</td><td class="text-end" th:text="${#numbers.formatDecimal(ctx.gTerminal * 100, 2, 2)} + '%'"></td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between">
+        <a href="/params" class="btn btn-outline-secondary">← 修改参数</a>
+        <a href="/reset" class="btn btn-outline-danger">重新估值</a>
+    </div>
+    <p class="text-muted small mt-3">本结果为模型估算，仅供参考，不构成投资建议。</p>
+</div>
+
+<script th:src="@{/vendor/echarts.min.js}"></script>
+<script th:src="@{/js/common.js}"></script>
+<script th:inline="javascript">
+    // 敏感性矩阵数据（行=折现率，列=永续增长率）
+    var sens = /*[[${ctx.sensitivity.values}]]*/ [[0]];
+    var rRates = /*[[${ctx.sensitivity.discountRates}]]*/ [0];
+    var gRates = /*[[${ctx.sensitivity.growthRates}]]*/ [0];
+    // FCF 预测数据
+    var fcfForecast = /*[[${ctx.result.fcfForecast}]]*/ [0];
+    var growthPath = /*[[${ctx.result.growthPath}]]*/ [0];
+    var histYears = /*[[${ctx.company.history.years}]]*/ [];
+    var histFcf = /*[[${ctx.company.history.fcfSeries()}]]*/ [];
+
+    // 敏感性热力图
+    var heatData = [];
+    for (var r = 0; r < rRates.length; r++) {
+        for (var c = 0; c < gRates.length; c++) {
+            var v = sens[r][c];
+            if (v != null && !isNaN(v)) {
+                heatData.push([c, r, Math.round(v * 100) / 100]);
+            }
+        }
+    }
+    var heat = echarts.init(document.getElementById('sensitivity-chart'));
+    heat.setOption({
+        tooltip: { formatter: p => '折现率 ' + (rRates[p.value[1]] * 100).toFixed(1) + '%<br>永续增长 ' + (gRates[p.value[0]] * 100).toFixed(2) + '%<br>每股价值 ' + p.value[2] },
+        grid: { left: 70, right: 20, top: 20, bottom: 60 },
+        xAxis: { type: 'category', data: gRates.map(g => (g * 100).toFixed(2) + '%'), name: '永续增长率' },
+        yAxis: { type: 'category', data: rRates.map(r => (r * 100).toFixed(1) + '%'), name: '折现率' },
+        visualMap: { min: Math.min.apply(null, heatData.map(d => d[2])), max: Math.max.apply(null, heatData.map(d => d[2])),
+            calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#e74c3c', '#f1c40f', '#2ecc71'] } },
+        series: [{ type: 'heatmap', data: heatData, label: { show: true, fontSize: 10 } }]
+    });
+
+    // FCF 历史 + 预测柱状图
+    var fcfYears = histYears.concat(Array.from({length: fcfForecast.length}, (_, i) => 'E' + (i + 1)));
+    var fcfAll = histFcf.concat(fcfForecast);
+    var fcfChart = echarts.init(document.getElementById('fcf-chart'));
+    fcfChart.setOption({
+        tooltip: { trigger: 'axis' },
+        grid: { left: 70, right: 20, top: 30, bottom: 40 },
+        xAxis: { type: 'category', data: fcfYears },
+        yAxis: { type: 'value', name: 'FCF' },
+        series: [{
+            type: 'bar', data: fcfAll.map((v, i) => ({ value: Math.round(v), itemStyle: { color: i >= histYears.length ? '#0d6efd' : '#6c757d' } }))
+        }]
+    });
+    window.addEventListener('resize', () => { heat.resize(); fcfChart.resize(); });
+</script>
+</body>
+</html>

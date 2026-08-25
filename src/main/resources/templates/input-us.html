@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>美股数据输入 - DCF 估值工具</title>
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">← DCF 估值工具</a>
+        <span class="text-secondary small">美股 · 手动输入</span>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <h4 class="mb-1">美股数据输入（手动）</h4>
+    <p class="text-muted">美股无自动抓取，请按下方清单从 SEC EDGAR / 财报中获取数据后填写</p>
+
+    <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+    <!-- 输入项目清单说明 -->
+    <div class="card p-3 mb-4 bg-light">
+        <h6 class="mb-2">📋 需要输入的项目清单（金额单位：美元）</h6>
+        <div class="row help-text">
+            <div class="col-md-6">
+                <p class="mb-1"><b>① 基本信息：</b>公司名称、股票代码（Ticker）、数据截止日期</p>
+                <p class="mb-1"><b>② 历史财务（至少 3 年，建议 5-10 年）：</b></p>
+                <ul class="mb-1">
+                    <li>经营活动现金流（Operating Cash Flow）</li>
+                    <li>资本开支（Capex，取正数）</li>
+                    <li>营收 / EBIT（营业利润，可选）</li>
+                    <li>税前利润 / 所得税（可选，用于计算有效税率）</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><b>③ 当前快照：</b></p>
+                <ul class="mb-1">
+                    <li>当前股价（每股美元）</li>
+                    <li>稀释后总股本（股）</li>
+                    <li>净债务 = 有息负债 − 现金（可为负数，即净现金）</li>
+                    <li>少数股东权益（如有）</li>
+                </ul>
+                <p class="mb-0"><b>④ 参数页将输入：</b>无风险利率（建议 10Y 美债 ≈4.3%）、Beta（可自动参考）、
+                    市场风险溢价（建议 4%-5%）、增长率假设、永续增长率（2%-3%）</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4">
+        <h6>填写历史财务与快照</h6>
+        <form method="post" action="/input/manual" class="g-3">
+            <input type="hidden" name="market" value="US">
+            <div class="row g-2 mb-3">
+                <div class="col-md-3"><label class="form-label">公司名称</label><input class="form-control" name="name" required placeholder="Apple Inc."></div>
+                <div class="col-md-2"><label class="form-label">代码（Ticker）</label><input class="form-control" name="code" required placeholder="AAPL"></div>
+                <div class="col-md-2"><label class="form-label">当前股价（$）</label><input class="form-control" name="price" type="number" step="0.01" min="0" required></div>
+                <div class="col-md-2"><label class="form-label">总股本（股）</label><input class="form-control" name="shares" type="number" step="any" min="0" required></div>
+                <div class="col-md-3"><label class="form-label">净债务（有息负债-现金，$）</label><input class="form-control" name="interestDebt" type="number" step="any" value="0"></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm align-middle" id="manualTable">
+                    <thead class="table-light">
+                    <tr>
+                        <th>财年*</th><th>经营现金流*</th><th>资本开支*</th>
+                        <th>营收</th><th>EBIT</th><th>税前利润</th><th>所得税</th><th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="manualRows"></tbody>
+                </table>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">+ 添加一年</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow()">- 删除末行</button>
+                <button class="btn btn-primary px-4" type="submit">下一步（参数）</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script th:src="@{/vendor/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/js/common.js}"></script>
+<script>initManualRows(5);</script>
+</body>
+</html>
