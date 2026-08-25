@@ -45,6 +45,13 @@ public class ReportService {
         sb.append(String.format("| 安全边际 | **%.1f%%** |\n", margin * 100));
         sb.append(String.format("| 结论 | %s |\n", margin >= 0 ? "**低估**，值得关注" : "**高估**，谨慎对待"));
         sb.append("\n> 本结论基于下方全部假设，请结合敏感性分析判断稳健性。\n\n");
+        sb.append("### 三情景对比\n\n");
+        sb.append("| 情景 | 折现率 | 每股内在价值 | 股权价值 |\n|---|---|---|---|\n");
+        for (com.dcf.model.ScenarioResult sc : ctx.getScenarioResults()) {
+            sb.append(String.format("| %s情景 | %.2f%% | %,.2f | %,.0f |\n",
+                    sc.scenario().label(), sc.discountRate() * 100, sc.perShareValue(), sc.equityValue()));
+        }
+        sb.append("\n");
 
         // 二、模型口径
         sb.append("## 二、模型口径\n\n");

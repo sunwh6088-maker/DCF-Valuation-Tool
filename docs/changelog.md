@@ -51,3 +51,21 @@
   （原方法名 taxShieldIncreasesWaccWhenTaxRises）
 - **测试方式**：`mvn test` 全量通过（修正后断言与实际公式一致）。
 - **可能影响的模块**：仅测试代码；实现（WaccCalculator.wacc）本身正确，无需改动。
+
+---
+
+## 变更 #2：三情景并行（保守 / 中性 / 乐观，P0-2，2026-08-25）
+
+- **原因**：单点估值给人「虚假精确」感；研报惯例是给估值区间。调研的 ianzheng 项目三情景对比是最受认可的亮点之一。
+- **修改位置**：
+  - 新增 `src/main/java/com/dcf/model/Scenario.java`：枚举含中文标签与偏移量（增长率±2pp、折现率∓1.5pp、永续增长率±0.5pp）
+  - 新增 `src/main/java/com/dcf/model/ScenarioResult.java`：情景估值摘要 record
+  - 新增 `src/main/java/com/dcf/model/ScenarioValuer.java`：偏移+夹取+估值执行器（保证 r > g）
+  - `src/main/java/com/dcf/service/ValuationService.java`：compute() 一次计算三情景存入上下文；主结果=中性情景
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 `List<ScenarioResult> scenarioResults`
+  - `src/main/resources/templates/result.html`：顶部新增三情景对比卡片（含情景边框配色与折现率标注）
+  - `src/main/java/com/dcf/excel/ExcelExporter.java`：新增「三情景」Sheet（7 个 Sheet）
+  - `src/main/java/com/dcf/service/ReportService.java`：报告「估值结论」后新增三情景对比表
+  - 新增 `src/test/java/com/dcf/model/ScenarioTest.java`（3 个用例）
+- **测试方式**：`mvn test` 全量 40 个用例通过；ScenarioTest 验证偏移约定、单调性（保守≤中性≤乐观）、极端参数（r≤g）不崩溃。
+- **可能影响的模块**：估值编排链路（所有市场/数据来源）、结果页、Excel、Markdown 报告；敏感性矩阵不受影响（仍以主折现率为中心）。

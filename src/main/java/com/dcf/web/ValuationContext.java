@@ -1,8 +1,11 @@
 package com.dcf.web;
 
 import com.dcf.data.model.CompanyData;
+import com.dcf.model.ScenarioResult;
 import com.dcf.model.SensitivityResult;
 import com.dcf.model.ValuationResult;
+
+import java.util.List;
 
 /**
  * 估值会话上下文（存于 HttpSession）。
@@ -39,6 +42,7 @@ public class ValuationContext {
 
     // ---- 计算结果 ----
     private ValuationResult result;
+    private List<ScenarioResult> scenarioResults = List.of();
     private SensitivityResult sensitivity;
     private String errorMessage;
 
@@ -105,6 +109,9 @@ public class ValuationContext {
 
     public ValuationResult getResult() { return result; }
     public void setResult(ValuationResult result) { this.result = result; }
+
+    public List<ScenarioResult> getScenarioResults() { return scenarioResults; }
+    public void setScenarioResults(List<ScenarioResult> scenarioResults) { this.scenarioResults = scenarioResults; }
 
     public SensitivityResult getSensitivity() { return sensitivity; }
     public void setSensitivity(SensitivityResult sensitivity) { this.sensitivity = sensitivity; }

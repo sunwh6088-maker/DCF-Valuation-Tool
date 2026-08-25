@@ -2,10 +2,16 @@ package com.dcf.service;
 
 import com.dcf.data.model.HistoricalData;
 import com.dcf.model.DcfModel;
+import com.dcf.model.Scenario;
+import com.dcf.model.ScenarioResult;
+import com.dcf.model.ScenarioValuer;
 import com.dcf.model.SensitivityResult;
 import com.dcf.model.ValuationResult;
 import com.dcf.model.WaccCalculator;
 import com.dcf.web.ValuationContext;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 估值编排服务：把会话参数接入模型计算，并补充业务口径。
@@ -57,10 +63,19 @@ public class ValuationService {
             throw new IllegalArgumentException("折现率必须大于 0");
         }
 
-        // 3. 完整估值
+        // 3. 完整估值（三情景：保守 / 中性 / 乐观）
         double netDebt = ctx.getCompany().snapshot().netDebt();
         double minority = ctx.getCompany().snapshot().minorityInterest();
         double shares = ctx.getCompany().snapshot().sharesOutstanding();
+        List<ScenarioResult> scenarioResults = new ArrayList<>();
+        for (Scenario sc : Scenario.values()) {
+            scenarioResults.add(ScenarioValuer.value(sc, baseFcf, ctx.getGFirst(), ctx.getGTerminal(),
+                    discountRate, netDebt, minority, shares,
+                    ctx.getNFirst(), ctx.getNTransition()));
+        }
+        ctx.setScenarioResults(scenarioResults);
+
+        // 主结果 = 中性情景（BASE，参数与用户输入完全一致）
         ValuationResult result = DcfModel.fullValuation(
                 baseFcf, ctx.getGFirst(), ctx.getGTerminal(),
                 discountRate, netDebt, shares, minority,

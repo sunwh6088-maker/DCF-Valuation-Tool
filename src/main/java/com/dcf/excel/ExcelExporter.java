@@ -116,7 +116,18 @@ public class ExcelExporter {
                             / ctx.getCompany().snapshot().price());
             autoWidth(s5, 2);
 
-            // ---------- 6. 敏感性 ----------
+            // ---------- 6. 三情景 ----------
+            Sheet s6a = wb.createSheet("三情景");
+            String[] scHeaders = {"情景", "折现率", "每股内在价值", "股权价值"};
+            headerRow(s6a, 0, scHeaders, bold);
+            int scRow = 1;
+            for (com.dcf.model.ScenarioResult sc : ctx.getScenarioResults()) {
+                row(s6a, scRow++, sc.scenario().label() + "情景", pct(sc.discountRate()),
+                        sc.perShareValue(), sc.equityValue());
+            }
+            autoWidth(s6a, 4);
+
+            // ---------- 7. 敏感性 ----------
             Sheet s6 = wb.createSheet("敏感性");
             SensitivityResult sen = ctx.getSensitivity();
             Row hr = s6.createRow(0);

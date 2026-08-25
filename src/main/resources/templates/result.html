@@ -44,6 +44,20 @@
         </div>
     </div>
 
+    <!-- 三情景对比 -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <h6 class="mb-2">三情景对比 <span class="text-muted small">（自动基于当前假设 ± 偏移：增长率±2pp、折现率∓1.5pp、永续增长率±0.5pp）</span></h6>
+        </div>
+        <div class="col-md-4" th:each="sc : ${ctx.scenarioResults}">
+            <div class="card p-3 text-center h-100" th:classappend="${sc.scenario.name() == 'CONSERVATIVE'} ? 'border-secondary' : (${sc.scenario.name() == 'OPTIMISTIC'} ? 'border-success' : 'border-primary')">
+                <div class="metric-label" th:text="${sc.scenario.label} + '情景'"></div>
+                <div class="big-number" th:text="${#numbers.formatDecimal(sc.perShareValue, 1, 2)}"></div>
+                <div class="metric-label" th:text="'折现率 ' + ${#numbers.formatDecimal(sc.discountRate * 100, 2, 2)} + '%'"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 终值占比警告 -->
     <div class="alert alert-warning" th:if="${ctx.result.terminalRatio > 0.8}">
         ⚠️ 终值现值占企业价值 <b th:text="${#numbers.formatDecimal(ctx.result.terminalRatio * 100, 1, 1)} + '%'"></b>
