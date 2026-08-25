@@ -131,7 +131,17 @@ public class ExcelExporter {
             }
             autoWidth(s6a, 4);
 
-            // ---------- 7. 敏感性 ----------
+            // ---------- 7. 历史回溯 ----------
+            Sheet s6b = wb.createSheet("历史回溯");
+            String[] btHeaders = {"年份", "模型估值", "年末股价", "折溢价"};
+            headerRow(s6b, 0, btHeaders, bold);
+            int btRow = 1;
+            for (com.dcf.service.HistoricalBacktest bt : ctx.getBacktestResults()) {
+                row(s6b, btRow++, bt.year(), bt.perShareValue(), bt.price(), pct(bt.premium()));
+            }
+            autoWidth(s6b, 4);
+
+            // ---------- 8. 敏感性 ----------
             Sheet s6 = wb.createSheet("敏感性");
             SensitivityResult sen = ctx.getSensitivity();
             Row hr = s6.createRow(0);

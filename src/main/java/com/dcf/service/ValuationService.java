@@ -33,6 +33,13 @@ public class ValuationService {
     /** 有效税率兜底（历史数据缺失时）。 */
     public static final double DEFAULT_TAX_RATE = 0.25;
 
+    private com.dcf.data.DataService dataService;
+
+    /** 注入数据服务（历史股价回溯用；不注入则跳过历史回溯）。 */
+    public void setDataService(com.dcf.data.DataService dataService) {
+        this.dataService = dataService;
+    }
+
     /**
      * 执行完整估值并写回上下文。
      *
@@ -94,6 +101,9 @@ public class ValuationService {
         ctx.setImpliedReturn(Indicators.impliedAnnualReturn(
                 result.perShareValue(), price, ctx.getNFirst() + ctx.getNTransition()));
 
+        // 3.6 历史 DCF 回溯（容错：失败不阻断主流程）
+        runBacktest(ctx, h);
+
         // 4. 敏感性矩阵（CAPM 值 ±3%）
         double rLow = Math.max(0.005, Math.round((discountRate - 0.03) * 200) / 200.0);
         double rHigh = discountRate + 0.03;
@@ -103,6 +113,29 @@ public class ValuationService {
                 baseFcf, ctx.getGFirst(), rRates, gRates,
                 netDebt, shares, minority, ctx.getNFirst(), ctx.getNTransition());
         ctx.setSensitivity(sens);
+    }
+
+    /** 历史 DCF 回溯：A 股拉东财年末价；美股/失败时置错误提示（不阻断估值）。 */
+    private void runBacktest(ValuationContext ctx, HistoricalData h) {
+        ctx.setBacktestResults(java.util.List.of());
+        ctx.setBacktestError(null);
+        if (dataService == null) {
+            ctx.setBacktestError("未配置数据服务，历史回溯不可用");
+            return;
+        }
+        if (!"CN".equals(ctx.market())) {
+            ctx.setBacktestError("美股暂无免费历史股价源，历史回溯仅支持 A 股");
+            return;
+        }
+        try {
+            int startYear = h.years()[0];
+            int endYear = h.years()[h.size() - 1];
+            java.util.Map<Integer, Double> prices =
+                    dataService.fetchYearEndPrices(ctx.getCompany().code(), startYear, endYear);
+            ctx.setBacktestResults(HistoricalDcfService.backtest(h, prices, ctx));
+        } catch (Exception e) {
+            ctx.setBacktestError("历史股价获取失败：" + e.getMessage());
+        }
     }
 
     /** 基准 FCF：最近一年优先，回退近 3 年均值；全部缺失抛异常。 */

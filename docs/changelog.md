@@ -120,3 +120,24 @@
 - **测试方式**：`mvn test` 全量 47 个用例通过；正例（招商银行/中信证券/中航信托等）、反例（贵州茅台/宁德时代/空值）。
 - **可能影响的模块**：参数页/结果页展示（纯提示，不影响计算）；美股手动输入同样生效（名称必填）。
 - **已知限制**：名称不含关键词的类金融公司（如"民生控股"）可能漏检；行业接口恢复后可升级为字段判断。
+
+---
+
+## 变更 #6：历史 DCF 回溯（P1-3，2026-08-25）
+
+- **原因**：使用者无法验证"我的模型假设历史靠不靠谱"；这是调研的 halessi/DCF（496★）最独特的功能——回算过去 N 年估值并对比当年股价，画折溢价曲线。
+- **修改位置**：
+  - `src/main/java/com/dcf/data/eastmoney/EastMoneyClient.java`：新增 fetchYearEndPrices（月线 klt=103，按年取年末收盘）
+  - `src/main/java/com/dcf/data/DataService.java`：新增 fetchYearEndPrices 入口
+  - 新增 `src/main/java/com/dcf/service/HistoricalDcfService.java`：逐年用当年实际 FCF 回算估值（假设沿用当前参数，股本/净债务按当前值近似，样本<4 年跳过）
+  - 新增 `src/main/java/com/dcf/service/HistoricalBacktest.java`：单年结果 record（年份/估值/股价/折溢价）
+  - `src/main/java/com/dcf/service/ValuationService.java`：新增 setDataService 注入 + runBacktest（容错，失败不阻断主流程；美股提示无免费历史股价源）
+  - `src/main/java/com/dcf/web/ValuationContext.java`：新增 backtestResults / backtestError
+  - `src/main/java/com/dcf/web/PageController.java`：接线 dataService
+  - `result.html`：新增历史回溯折线图（模型估值 vs 年末股价，ECharts）
+  - `ReportService.java`：报告新增「七、历史 DCF 回溯」节
+  - `ExcelExporter.java`：新增「历史回溯」Sheet（8 个 Sheet）
+  - 新增 `src/test/java/com/dcf/service/HistoricalDcfServiceTest.java`（3 个用例）
+- **测试方式**：`mvn test` 全量 50 个用例通过；固定数据手工核算折溢价公式、缺股价 NaN、样本不足跳过。
+- **可能影响的模块**：结果页（新增图表）、Excel/报告（新增内容）；核心估值数字不受影响；历史股价接口失败时仅提示不报错。
+- **已知限制**：历史股本/净债务按当前值近似（历史值无免费源）；美股不支持（无免费历史股价源）。

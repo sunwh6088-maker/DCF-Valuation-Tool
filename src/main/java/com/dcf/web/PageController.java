@@ -36,6 +36,8 @@ public class PageController {
     private final DataService dataService = new DataService(CACHE_DIR);
     private final ValuationService valuationService = new ValuationService();
 
+    { valuationService.setDataService(dataService); }
+
     private ValuationContext ctx(HttpSession session) {
         ValuationContext c = (ValuationContext) session.getAttribute(CTX);
         if (c == null) {

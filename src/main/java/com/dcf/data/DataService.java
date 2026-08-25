@@ -98,6 +98,20 @@ public class DataService {
         return BetaCalculator.calculate(stock, index);
     }
 
+    /**
+     * 拉取逐年年末收盘价（历史 DCF 回溯用）。
+     *
+     * @param code      6 位股票代码
+     * @param startYear 起始年份
+     * @param endYear   结束年份
+     * @return 年份 → 年末收盘价；失败抛异常（由调用方容错）
+     */
+    public Map<Integer, Double> fetchYearEndPrices(String code, int startYear, int endYear) {
+        String normalized = normalizeCode(code);
+        return EastMoneyClient.fetchYearEndPrices(EastMoneyClient.secid(normalized),
+                startYear + "0101", endYear + "1231");
+    }
+
     /** 快照科目取值（最新报告期）。 */
     private double pick(Map<String, Map<String, Double>> balance, String keyword) {
         // 资产负债表按报告期倒序取最新

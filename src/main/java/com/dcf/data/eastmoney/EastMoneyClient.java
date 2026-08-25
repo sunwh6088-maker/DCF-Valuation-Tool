@@ -96,6 +96,41 @@ public class EastMoneyClient {
         }
     }
 
+    /**
+     * 拉取逐年年末收盘价（月线 klt=103，按年取当年最后一条）。
+     *
+     * @param secid     证券标识（如 1.600519）
+     * @param startDate 起始日期（yyyyMMdd，含）
+     * @param endDate   结束日期（yyyyMMdd，含）
+     * @return 年份 → 当年年末收盘价
+     */
+    public static Map<Integer, Double> fetchYearEndPrices(String secid, String startDate, String endDate) {
+        String url = HttpUtil.buildQuery(KLINE_URL, Map.of(
+                "fields1", "f1,f2,f3,f4,f5,f6",
+                "fields2", "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
+                "ut", "7eea3edcaed734bea9cbfc24409ed989",
+                "klt", "103",   // 103 = 月线
+                "fqt", "1",     // 前复权
+                "secid", secid,
+                "beg", startDate,
+                "end", endDate));
+        String body = HttpUtil.get(url);
+        try {
+            JsonNode data = MAPPER.readTree(body).path("data");
+            Map<Integer, Double> yearEnd = new java.util.LinkedHashMap<>();
+            for (JsonNode k : data.path("klines")) {
+                // 每行格式：日期(8位),开,收,高,低,成交量,...
+                String[] parts = k.asText().split(",");
+                int year = Integer.parseInt(parts[0].substring(0, 4));
+                double close = Double.parseDouble(parts[2]);
+                yearEnd.put(year, close); // 覆盖式：月线升序，后到的同年月即当年年末
+            }
+            return yearEnd;
+        } catch (Exception e) {
+            throw new RuntimeException("解析东财月线失败: " + e.getMessage(), e);
+        }
+    }
+
     /** 默认 3 年区间起始日期（用于 Beta 计算）。 */
     public static String defaultStartDate() {
         return LocalDate.now().minusYears(3).minusMonths(1).toString().replace("-", "");

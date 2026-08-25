@@ -4,6 +4,7 @@ import com.dcf.data.model.CompanyData;
 import com.dcf.model.ScenarioResult;
 import com.dcf.model.SensitivityResult;
 import com.dcf.model.ValuationResult;
+import com.dcf.service.HistoricalBacktest;
 
 import java.util.List;
 
@@ -47,6 +48,8 @@ public class ValuationContext {
     private String verdict = "";            // 判断分级（明显低估/略有折价/基本合理/偏贵/明显高估）
     private double paybackYears = Double.NaN; // 回本年限（市值/年均FCF）
     private double impliedReturn = Double.NaN; // 隐含年化回报
+    private List<HistoricalBacktest> backtestResults = List.of(); // 历史 DCF 回溯
+    private String backtestError;             // 回溯不可用原因（可空）
     private SensitivityResult sensitivity;
     private String errorMessage;
 
@@ -128,6 +131,12 @@ public class ValuationContext {
 
     public double getImpliedReturn() { return impliedReturn; }
     public void setImpliedReturn(double impliedReturn) { this.impliedReturn = impliedReturn; }
+
+    public List<HistoricalBacktest> getBacktestResults() { return backtestResults; }
+    public void setBacktestResults(List<HistoricalBacktest> backtestResults) { this.backtestResults = backtestResults; }
+
+    public String getBacktestError() { return backtestError; }
+    public void setBacktestError(String backtestError) { this.backtestError = backtestError; }
 
     public SensitivityResult getSensitivity() { return sensitivity; }
     public void setSensitivity(SensitivityResult sensitivity) { this.sensitivity = sensitivity; }

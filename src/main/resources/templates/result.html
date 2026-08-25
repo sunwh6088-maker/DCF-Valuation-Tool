@@ -89,6 +89,21 @@
         </div>
     </div>
 
+    <!-- 历史 DCF 回溯 -->
+    <div class="row g-3 mb-4" th:if="${!ctx.backtestResults.isEmpty()}">
+        <div class="col-12">
+            <div class="card p-3">
+                <h6>历史 DCF 回溯（模型估值 vs 年末股价）</h6>
+                <p class="help-text mb-2">每年用截至该年的实际 FCF 回算估值（假设参数沿用当前设置、股本按当前值近似），
+                    对比当年年末股价：若长期大幅偏离，说明假设或口径需要重新审视。</p>
+                <div id="backtest-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="alert alert-info" th:if="${ctx.backtestError != null && ctx.backtestResults.isEmpty()}">
+        历史 DCF 回溯不可用：<span th:text="${ctx.backtestError}"></span>
+    </div>
+
     <!-- 估值拆分 -->
     <div class="row g-3 mb-4">
         <div class="col-md-6">
@@ -150,6 +165,10 @@
     var growthPath = /*[[${ctx.result.growthPath}]]*/ [0];
     var histYears = /*[[${ctx.company.history.years}]]*/ [];
     var histFcf = /*[[${ctx.company.history.fcfSeries()}]]*/ [];
+    // 历史 DCF 回溯数据
+    var btYears = /*[[${ctx.backtestResults.![year]}]]*/ [];
+    var btValues = /*[[${ctx.backtestResults.![perShareValue]}]]*/ [];
+    var btPrices = /*[[${ctx.backtestResults.![price]}]]*/ [];
 
     // 敏感性热力图
     var heatData = [];
@@ -185,6 +204,22 @@
             type: 'bar', data: fcfAll.map((v, i) => ({ value: Math.round(v), itemStyle: { color: i >= histYears.length ? '#0d6efd' : '#6c757d' } }))
         }]
     });
+    // 历史 DCF 回溯折线图（模型估值 vs 年末股价）
+    if (btYears.length > 0) {
+        var btChart = echarts.init(document.getElementById('backtest-chart'));
+        btChart.setOption({
+            tooltip: { trigger: 'axis' },
+            legend: { data: ['模型估值', '年末股价'] },
+            grid: { left: 70, right: 20, top: 30, bottom: 40 },
+            xAxis: { type: 'category', data: btYears },
+            yAxis: { type: 'value', name: '每股（元）' },
+            series: [
+                { name: '模型估值', type: 'line', data: btValues.map(v => Math.round(v * 100) / 100), smooth: true, itemStyle: { color: '#0d6efd' } },
+                { name: '年末股价', type: 'line', data: btPrices.map(v => Math.round(v * 100) / 100), smooth: true, itemStyle: { color: '#6c757d' } }
+            ]
+        });
+        window.addEventListener('resize', () => btChart.resize());
+    }
     window.addEventListener('resize', () => { heat.resize(); fcfChart.resize(); });
 </script>
 </body>

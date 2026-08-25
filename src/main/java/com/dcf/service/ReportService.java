@@ -128,7 +128,20 @@ public class ReportService {
         sb.append(String.format("| 每股内在价值 | **%.2f** |\n", res.perShareValue()));
         sb.append("\n");
 
-        // 七、敏感性
+        // 七、历史 DCF 回溯（若可用）
+        if (!ctx.getBacktestResults().isEmpty()) {
+            sb.append("## 七、历史 DCF 回溯（模型估值 vs 年末股价）\n\n");
+            sb.append("> 口径：每年用截至该年的实际 FCF 回算估值；假设参数沿用当前设置；"
+                    + "股本/净债务按当前值近似。折溢价 =（模型估值 - 股价）/ 股价。\n\n");
+            sb.append("| 年份 | 模型估值 | 年末股价 | 折溢价 |\n|---|---|---|---|\n");
+            for (com.dcf.service.HistoricalBacktest bt : ctx.getBacktestResults()) {
+                sb.append(String.format("| %d | %,.2f | %,.2f | %.1f%% |\n",
+                        bt.year(), bt.perShareValue(), bt.price(), bt.premium() * 100));
+            }
+            sb.append("\n");
+        }
+
+        // 八、敏感性
         sb.append("## 七、敏感性分析（每股内在价值，折现率 × 永续增长率）\n\n");
         sb.append("| 折现率 \\ 永续增长率 |");
         for (double g : sen.growthRates()) {
