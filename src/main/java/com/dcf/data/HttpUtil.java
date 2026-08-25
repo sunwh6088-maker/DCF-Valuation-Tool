@@ -15,7 +15,15 @@ import java.time.Duration;
  */
 public final class HttpUtil {
 
+    /** 最多尝试次数（含首次）。东财等免费源连接偶发被服务器立即断开，重试可显著提高成功率。 */
+    private static final int MAX_ATTEMPTS = 3;
+    /** 重试间隔（毫秒）。 */
+    private static final long RETRY_INTERVAL_MS = 400;
+
     private static final HttpClient CLIENT = HttpClient.newBuilder()
+            // 实测（2026-08-25）：东财 push2his 在 HTTP/2 下稳定（3/3），
+            // ALPN 降级到 HTTP/1.1 后连接常被服务器立即关闭（"header parser received no bytes"）。
+            .version(HttpClient.Version.HTTP_2)
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
@@ -34,25 +42,37 @@ public final class HttpUtil {
      * @throws RuntimeException 网络错误或非 200 响应
      */
     public static String get(String url) {
-        try {
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("User-Agent", UA)
-                    .header("Accept", "*/*")
-                    .GET()
-                    .build();
-            HttpResponse<String> resp = CLIENT.send(req,
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (resp.statusCode() != 200) {
-                throw new RuntimeException("HTTP " + resp.statusCode() + ": " + url);
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(15))
+                .header("User-Agent", UA)
+                .header("Accept", "*/*")
+                .GET()
+                .build();
+        Exception last = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                HttpResponse<String> resp = CLIENT.send(req,
+                        HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (resp.statusCode() != 200) {
+                    throw new RuntimeException("HTTP " + resp.statusCode() + ": " + url);
+                }
+                return resp.body();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("请求被中断: " + url, e);
+            } catch (Exception e) {
+                last = e;
+                if (attempt < MAX_ATTEMPTS) {
+                    try {
+                        Thread.sleep(RETRY_INTERVAL_MS);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("请求被中断: " + url, ie);
+                    }
+                }
             }
-            return resp.body();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("请求被中断: " + url, e);
-        } catch (Exception e) {
-            throw new RuntimeException("网络请求失败: " + url + "（" + e.getMessage() + "）", e);
         }
+        throw new RuntimeException("网络请求失败: " + url + "（" + last.getMessage() + "，已重试 " + (MAX_ATTEMPTS - 1) + " 次）", last);
     }
 
     /** 拼装查询参数。 */

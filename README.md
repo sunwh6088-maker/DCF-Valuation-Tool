@@ -46,7 +46,7 @@ cd DCF-Valuation-Tool
 
 浏览器打开 <http://localhost:8501> 即可使用（端口可在 `src/main/resources/application.yml` 修改；
 若 8501 被占用，可用 `run.bat jar 8502` / `./run.sh jar 8502` 一键换端口，
-或直接 `java -jar target/dcf-valuation-tool-1.1.6.jar --server.port=8502`）。
+或直接 `java -jar target/dcf-valuation-tool-1.1.7.jar --server.port=8502`）。
 
 **代理（可选）**：FRED 等境外数据源需要代理时才需设置环境变量，**别人使用无需任何代理配置**（不加代理时自动获取失败会提示手动输入，不影响其他功能）：
 
@@ -130,7 +130,7 @@ DCF-Valuation-Tool/
 
 ## 分支与 Roadmap
 
-- `main`：Java 版（当前版本 v1.1.6）
+- `main`：Java 版（当前版本 v1.1.7）
 - `python-prototype`：Python/Streamlit 原型（⚠️ WIP：目前只提交了核心计算模块 `dcf/`，UI 层 `app.py` 尚未完成，请勿直接运行该分支；后续完成后再合并为正式版）
 
 ## Docker 部署（免装 JDK）
@@ -149,7 +149,7 @@ docker run -p 8501:8501 -v "$(pwd)/data:/app/data" dcf-valuation-tool
 
 - **免费 PaaS（最省事）**：把本仓库部署到 Railway / Render / Fly.io（仓库已内置 Dockerfile），
   构建后即可获得公网地址，适合演示与试用
-- **云服务器**：在服务器（需 JDK 21）上运行 `java -jar target/dcf-valuation-tool-1.1.6.jar`，
+- **云服务器**：在服务器（需 JDK 21）上运行 `java -jar target/dcf-valuation-tool-1.1.7.jar`，
   再用 Nginx / Caddy 反向代理并绑定域名（HTTPS）
 - **内网穿透**：ngrok / frp 适合临时演示，不建议长期公开使用
 

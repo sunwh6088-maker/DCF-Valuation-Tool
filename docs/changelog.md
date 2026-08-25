@@ -432,3 +432,36 @@
 - **原因 / 修改位置 / 测试方式 / 可能影响的模块**：完整 4 要素记录在 `docs/bug-log.md` 的 Bug #7。
   简版：`ApiController.beta()`/`rf()` 用 `Map.of` 构造响应，null 值（Beta 计算失败/无风险利率获取失败）触发 NPE 500；
   已改用 HashMap，失败时返回 200 + 具体 error 文案。前端无需改动。
+
+
+---
+
+## 变更 #26：版本 bump v1.1.6 → v1.1.7（2026-08-25）
+
+- **原因**：v1.1.6 发布后修复了 Beta/无风险利率接口 500（Bug #7/#8），本地 jar 与已发布 v1.1.6 Release 内容不一致；bump 版本号重新发版，保证 jar 与 Release 一一对应。
+- **修改位置**：
+  - `pom.xml`：`<version>` 1.1.6 → 1.1.7
+  - `run.bat` / `run.sh`：`JAR` 变量改为 `dcf-valuation-tool-1.1.7.jar`
+  - `README.md`：jar 名与版本号同步为 1.1.7
+  - 首页版本号动态化（变更 #19），自动跟随 pom，无需手动改
+- **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.7 jar；启动冒烟 `/api/beta?code=600519` 200 + beta 值、`/api/rf?market=US` 200 + 来源提示（失败路径不再 500）
+- **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+
+---
+
+## 变更 #27：东财 K 线连接不稳定（HTTP/2 显式指定 + 失败自动重试）（2026-08-25）
+
+- **原因**：用户反馈 Beta 自动计算仍失败。接口日志报 `HTTP/1.1 header parser received no bytes`（连接建立后未收到任何响应字节）。
+  用 JDK HttpClient 实测（3 次/协议）：**HTTP/2 下 3/3 成功，ALPN 降级 HTTP/1.1 后仅 1/3 成功**——
+  东财 push2his 边缘节点/中间网络对 HTTP/1.1 连接间歇性立即断开；应用默认 HTTP_2 但协商失败会自动降级，
+  降级后即触发失败；且常驻进程连接池复用被服务端主动断开的旧连接也会加剧该现象。
+- **修改位置**：`src/main/java/com/dcf/data/HttpUtil.java`
+  - `HttpClient` 显式 `.version(HttpClient.Version.HTTP_2)`，避免协商降级到不稳定的 HTTP/1.1
+  - `get()` 增加失败自动重试：最多 3 次尝试、间隔 400ms；重试期间连接池自动剔除失效连接；
+    最终失败时错误信息注明"已重试 2 次"，便于用户判断是否为持续网络故障
+  - 该工具为所有数据源共用（新浪财报、东财 K 线、中债登 10Y、FRED），重试逻辑一并受益
+- **测试方式**：`mvnw test` 全量通过；重启后连续实测 `/api/beta?code=600519` 5 次全部 200 且有 beta 值；
+  对照实验（临时 Java 程序）HTTP_2 3/3 vs HTTP_1_1 1/3
+- **可能影响的模块**：Beta 自动计算、A 股自动抓取、无风险利率自动获取（共用 HttpUtil 的全部数据源请求）；
+  失败兜底行为不变（仍提示手动输入），仅降低偶发失败概率；不涉及估值计算

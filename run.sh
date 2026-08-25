@@ -31,7 +31,7 @@ fi
 MVN="mvn"
 [ -f "./mvnw" ] && [ -x "./mvnw" ] && MVN="./mvnw"
 
-JAR="target/dcf-valuation-tool-1.1.6.jar"
+JAR="target/dcf-valuation-tool-1.1.7.jar"
 PROXY_ARGS=""
 
 PROXY_URL="${HTTPS_PROXY:-$HTTP_PROXY}"
