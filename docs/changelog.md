@@ -312,3 +312,14 @@
   - `result.html`：F-Score 卡片（总分 + 9 项明细表）；`ExcelExporter` 新增「F-Score」sheet（第 9 个）；`ReportService` 新增 F-Score 章节
 - **测试方式**：新增 `FScoreCalculatorTest`（3 用例：9 项全命中、缺数据→null 降级、年份截断）；冒烟结果页/报告/Excel 均出现 F-Score
 - **可能影响的模块**：结果页/Excel/报告（新增内容，不影响估值数字）；数据不足时显示为空
+## 变更 #18：版本 bump v1.1.2 → v1.1.3（2026-08-25 晚）
+
+- **原因**：v1.1.2 发布后新增了 4 项功能（FCFF 口径、多模型、PE 退出法、F-Score，见变更 #13-17），
+  本地重新打包的 1.1.2 jar 已含新代码但与已发布的 v1.1.2 Release 不一致；bump 版本号重新发版。
+- **修改位置**：
+  - `pom.xml`：`<version>` 1.1.2 → 1.1.3
+  - `run.bat` / `run.sh`：`JAR` 变量改为 `dcf-valuation-tool-1.1.3.jar`
+  - `README.md`：版本号与 jar 名同步为 1.1.3
+- **测试方式**：`mvnw test` 全量 65 个用例通过；`mvnw package` 产出 1.1.3 jar；
+  冒烟 `run.bat jar 8502`：自动抓取茅台 → 提交参数 → 结果页/Excel/报告正常，截图与茅台示例重新生成
+- **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
