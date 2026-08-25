@@ -13,7 +13,7 @@
 
     <groupId>com.dcf</groupId>
     <artifactId>dcf-valuation-tool</artifactId>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <name>dcf-valuation-tool</name>
     <description>两阶段 DCF 估值工具：A股自动抓取 + 美股手动输入 + 敏感性分析（Java 版）</description>
 

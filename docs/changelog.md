@@ -389,3 +389,37 @@
   - 首页版本号无需再改（变更 #19 已动态化，自动跟随 pom）
 - **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.5 jar；启动冒烟，首页显示 "Java 版 v1.1.5"，H00700 友好提示与 600519 正常抓取均验证
 - **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化
+
+---
+
+## 变更 #24：敏感性热力图坐标轴单位标签被裁剪（2026-08-25）
+
+- **原因**：ECharts 图表容器未设固定高度（默认 0 高导致依赖默认高度），且热力图 grid 边距
+  （left:70 / bottom:60）过窄，y 轴名称「折现率」、x 轴名称「永续增长率/退出PE」按默认
+  nameLocation（轴端点）渲染时被容器边界裁掉，只露出一点点。
+- **修改位置**：`src/main/resources/templates/result.html`
+  - 热力图 `#sensitivity-chart`、FCF 图 `#fcf-chart` 加固定高度 `style="height:460px"`；
+    历史回溯图 `#backtest-chart` 加 `height:420px`
+  - 热力图 grid 边距改为 `{ left: 90, right: 30, top: 30, bottom: 85 }`，给轴名称留足空间
+  - xAxis：`nameLocation:'middle', nameGap:32`，axisLabel `margin:10, interval:0`，
+    增长率标签从 `toFixed(2)` 改为 `toFixed(1)`（缩短文本，避免拥挤）
+  - yAxis：`nameLocation:'middle', nameGap:45`，axisLabel `margin:10`
+  - visualMap 从 `bottom:0` 微调为 `bottom:5`，避免压住 x 轴名称
+- **测试方式**：打包后在 8501 启动，headless Edge + CDP 走「600519 自动抓取（10 年）+ FCFF/PE 退出法参数」流程，
+  截图复核：y 轴「折现率」与 x 轴「永续增长率」标签完整可见、不再出界；热力图/FCF 图 canvas 均为 484×460 正常渲染；
+  回溯图因东财历史股价免费接口网络失败未渲染（已知限制，与本改动无关）
+- **可能影响的模块**：结果页三个 ECharts 图表（热力图、FCF 图、历史回溯图）的布局；
+  不影响估值计算、Excel/报告导出、参数页
+
+---
+
+## 变更 #25：版本 bump v1.1.5 → v1.1.6（2026-08-25）
+
+- **原因**：变更 #24（热力图坐标轴裁剪修复）改动了打包内容，本地 jar 与已发布 v1.1.5 Release 不一致；bump 版本号重新发版，保证 jar 与 Release 一一对应。
+- **修改位置**：
+  - `pom.xml`：`<version>` 1.1.5 → 1.1.6
+  - `run.bat` / `run.sh`：`JAR` 变量改为 `dcf-valuation-tool-1.1.6.jar`
+  - `README.md`：jar 名与版本号同步为 1.1.6
+  - 首页版本号动态化（变更 #19），自动跟随 pom，无需手动改
+- **测试方式**：`mvnw test` 全量通过；`mvnw package` 产出 1.1.6 jar；启动冒烟 600519 全流程 + 结果页截图复核热力图
+- **可能影响的模块**：打包产物文件名、Release 资产；无业务逻辑变化

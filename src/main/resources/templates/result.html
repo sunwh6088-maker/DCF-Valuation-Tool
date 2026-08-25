@@ -78,13 +78,13 @@
         <div class="col-lg-7">
             <div class="card p-3">
                 <h6 th:text="'敏感性热力图（每股内在价值：折现率 × ' + ${ctx.sensitivity.xLabel} + '）'"></h6>
-                <div id="sensitivity-chart"></div>
+                <div id="sensitivity-chart" style="height:460px"></div>
             </div>
         </div>
         <div class="col-lg-5">
             <div class="card p-3">
                 <h6>自由现金流：历史 + 预测（显式期）</h6>
-                <div id="fcf-chart"></div>
+                <div id="fcf-chart" style="height:460px"></div>
             </div>
         </div>
     </div>
@@ -96,7 +96,7 @@
                 <h6>历史 DCF 回溯（模型估值 vs 年末股价）</h6>
                 <p class="help-text mb-2">每年用截至该年的实际 FCF 回算估值（假设参数沿用当前设置、股本按当前值近似），
                     对比当年年末股价：若长期大幅偏离，说明假设或口径需要重新审视。</p>
-                <div id="backtest-chart"></div>
+                <div id="backtest-chart" style="height:420px"></div>
             </div>
         </div>
     </div>
@@ -226,11 +226,11 @@
     var heat = echarts.init(document.getElementById('sensitivity-chart'));
     heat.setOption({
         tooltip: { formatter: p => '折现率 ' + (rRates[p.value[1]] * 100).toFixed(1) + '%<br>' + xLabel + ' ' + (isPeAxis ? gRates[p.value[0]] : (gRates[p.value[0]] * 100).toFixed(2) + '%') + '<br>每股价值 ' + p.value[2] },
-        grid: { left: 70, right: 20, top: 20, bottom: 60 },
-        xAxis: { type: 'category', data: gRates.map(g => isPeAxis ? g : (g * 100).toFixed(2) + '%'), name: xLabel },
-        yAxis: { type: 'category', data: rRates.map(r => (r * 100).toFixed(1) + '%'), name: '折现率' },
+        grid: { left: 90, right: 30, top: 30, bottom: 85 },
+        xAxis: { type: 'category', data: gRates.map(g => isPeAxis ? g : (g * 100).toFixed(1) + '%'), name: xLabel, nameLocation: 'middle', nameGap: 32, axisLabel: { margin: 10, interval: 0 } },
+        yAxis: { type: 'category', data: rRates.map(r => (r * 100).toFixed(1) + '%'), name: '折现率', nameLocation: 'middle', nameGap: 45, axisLabel: { margin: 10 } },
         visualMap: { min: Math.min.apply(null, heatData.map(d => d[2])), max: Math.max.apply(null, heatData.map(d => d[2])),
-            calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#e74c3c', '#f1c40f', '#2ecc71'] } },
+            calculable: true, orient: 'horizontal', left: 'center', bottom: 5, inRange: { color: ['#e74c3c', '#f1c40f', '#2ecc71'] } },
         series: [{ type: 'heatmap', data: heatData, label: { show: true, fontSize: 10 } }]
     });
 
