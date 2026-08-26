@@ -142,19 +142,6 @@ docker run -p 8501:8501 -v "$(pwd)/data:/app/data" dcf-valuation-tool
 
 浏览器打开 <http://localhost:8501>。`data` 卷用于持久化抓取缓存。
 
-## 部署到公网（让别人直接访问）
-
-本项目是本地 Web 应用，默认只能在部署它的机器上通过 `localhost` 访问。
-若要发布到公网、让别人**不装环境直接使用**，可按以下任一方式部署：
-
-- **免费 PaaS（最省事）**：把本仓库部署到 Railway / Render / Fly.io（仓库已内置 Dockerfile），
-  构建后即可获得公网地址，适合演示与试用
-- **云服务器**：在服务器（需 JDK 21）上运行 `java -jar target/dcf-valuation-tool-1.1.10.jar`，
-  再用 Nginx / Caddy 反向代理并绑定域名（HTTPS）
-- **内网穿透**：ngrok / frp 适合临时演示，不建议长期公开使用
-
-> 数据源（新浪/东财）对境外服务器可能限流，公网部署建议选国内节点（如腾讯云/阿里云轻量服务器）。
-
 ## 参与贡献
 
 欢迎提交 Issue 与 PR，详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
